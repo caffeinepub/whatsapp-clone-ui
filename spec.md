@@ -1,47 +1,50 @@
-# WhatsApp Clone UI - Stage 5
+# WhatsApp Clone UI
 
 ## Current State
-Full WhatsApp clone with 4 stages completed:
-- Home/chat list screen with search, filter tabs (All, Unread, Favourites, Groups)
-- Chat view with messages, emoji, reactions, reply, voice recording, typing indicator
-- Status screen with viewer and posting
-- Calls screen with call overlay
-- Settings with all sub-panels
-- New Group screen
-- Dark mode
-- Bottom navigation (Chats, Calls, Updates, Tools tabs)
+Stage 5 is live with: chat list, chat view, calls, status/updates, settings, emoji picker, voice recording, reactions, in-chat search, attachment sheet, long-press menus, contact info screen, camera modal, new group flow, and all settings sub-panels.
+
+Bottom nav is NOT sticky (missing `sticky bottom-0 z-50`), header may not have consistent sticky positioning, and the chat messages area doesn't use smooth scrolling.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Home Header fixes**: Exact WhatsApp header layout -- "WhatsApp" title (bold), camera icon, 3-dot menu on right; 1px top margin below status bar using safe-area-inset
-- **3-dot Menu (Home)**: Dropdown with exact options from screenshot: Advertise, New group, Business broadcasts, Communities, Labels, Linked devices, Starred, Settings
-- **Camera icon click**: Opens a camera/QR scanner modal overlay
-- **Pencil/compose icon**: Opens New Chat screen (save contact screen) matching screenshot -- "New chat" header, "To: Search name or number" search field, New group option, New contact option (with QR icon), New business broadcast option, Frequently contacted section with contacts list (selectable with radio circles), Contacts on WhatsApp section
-- **Profile avatar click (Home header)**: Opens profile screen/sheet
-- **Long press on chat list item**: Shows context menu with options: Archive, Mute notifications, Delete chat, Pin to top, Mark as unread
-- **Chat View header options (3-dot)**: Exact WhatsApp chat options -- View contact, Media, links and docs, Search, Mute notifications, Disappearing messages, Clear chat, Export chat, Report, Block
-- **Chat View header**: Contact name, online status, video call icon, phone call icon, 3-dot menu
-- **Contact info screen**: When tapping contact name or "View contact" -- shows profile photo, name, phone, status/bio, options (message, call, video), shared media grid
+- **Media Gallery screen**: "Media, Links & Docs" tab view accessible from Contact Info (3 tabs: Media grid, Links list, Docs list) with images displayed in 3-col grid
+- **Starred Messages screen**: accessible from home 3-dot menu "Starred" option -- shows all starred messages with contact name, timestamp, and message content
+- **Broadcast Lists screen**: accessible from home 3-dot menu "Business broadcasts" -- shows list of broadcast lists with create new option
+- **Profile image upload**: tap the camera icon on the profile avatar in Settings/Edit Profile to open file picker and update profile photo (stored in useState, shown as img src)
+- **Cover/banner image upload**: tap camera icon on banner in Edit Profile screen to upload cover photo
+- **Updates screen 3-dot menu**: Advertise, Create channel, Status privacy, Starred, Status archive settings, Settings -- all shown in dropdown, "Starred" opens starred messages
+- **Calls screen 3-dot menu**: Advertise, Clear call log (with confirm dialog), Scheduled calls, Settings -- all functional
+- **QR Code screen**: tapping the QR grid icon in Settings profile header opens "Short link QR" screen with MY CODE / SCAN CODE tabs, shows QR code card with "Share code" button
+- **Account settings screen**: Security notifications, Passkeys, Email address, Two-step verification, Business Platform, Change phone number, Request account info, Delete account
+- **Privacy settings screen**: Privacy checkup banner, Last seen/online, Profile picture, About, Status, Read receipts toggle, Default message timer
+- **Notifications settings screen**: Conversation tones toggle, Reminders toggle, Messages section (Notification tone, Vibrate, Light, Use high priority, Reaction notifications)
+- **Chats settings screen**: Display section (Theme, Default chat theme), Chat settings (Enter is send toggle, Media visibility toggle, Font size), Archived chats (Keep chats archived toggle), Chat backup
 
 ### Modify
-- Home screen bottom nav tabs to match exact WhatsApp: Chats, Calls, Updates, Tools (with correct icons)
-- Home header to have no top tab bar (remove old tab bar if present), just the filter chips row below search
-- Filter chips: All, Unread, Favourites, Groups (scrollable horizontal row)
-- Chat list items: Show pin icon for pinned chats, mute icon for muted, missed call icon for missed video/call messages
+- **Bottom navbar**: add `sticky bottom-0 z-50` so it stays pinned at all times
+- **All screen headers**: ensure `sticky top-0 z-50` with backdrop so they pin to top on scroll
+- **Chat view messages area**: use `overflow-y-auto scroll-smooth` with `-webkit-overflow-scrolling: touch` for smooth momentum scrolling on mobile; messages list scrolls independently between sticky header and sticky input bar
+- **Chat input bar**: sticky at bottom of chat view (`sticky bottom-0`)
+- **Attachment sheet icons**: all 11 attachment options (Document, Camera, Gallery, Audio, Catalogue, Quick Reply, Location, Contact, Poll, Event, Share UPI QR) open toast confirmation on click
+- **Settings profile section**: tapping avatar opens Edit Profile screen with photo upload; QR grid icon opens QR code screen
+- **BottomNav tabs**: rename "Status" tab to "Updates" with camera icon (matches screenshots showing Chats/Calls/Updates/Tools layout)
 
 ### Remove
-- Old 3-dot menu options that don't match WhatsApp exactly
-- FAB pencil icon replaced with proper compose/new-chat flow
+- Nothing removed
 
 ## Implementation Plan
-1. Update HomeScreen header: bold "WhatsApp" title, camera icon opens CameraModal, 3-dot opens exact dropdown menu
-2. Build 3-dot dropdown with 8 options (Advertise, New group, Business broadcasts, Communities, Labels, Linked devices, Starred, Settings) -- clicking Settings navigates to settings screen
-3. Build NewChatScreen component matching screenshot (New chat header, To: search, New group row, New contact row with QR, New business broadcast, Frequently contacted section, Contacts on WhatsApp section with selectable contacts)
-4. Wire pencil/compose FAB to open NewChatScreen
-5. Add camera icon click -> CameraModal with camera viewfinder simulation UI
-6. Add long-press handler on chat list items -> BottomSheet with Archive, Mute, Delete, Pin, Mark as unread options
-7. Update ChatView 3-dot menu with all WhatsApp options: View contact, Media links and docs, Search, Mute notifications, Disappearing messages, Clear chat, Export chat, Report, Block
-8. Build ContactInfoScreen: profile photo, name, phone, bio, action buttons (Message/Call/Video), shared media grid thumbnails
-9. Wire chat header contact name tap -> ContactInfoScreen
-10. Ensure all header safe-area-inset-top padding applied correctly
+1. Fix BottomNav: sticky bottom-0, rename tabs to match WhatsApp Business style (Chats, Calls, Updates, Tools)
+2. Fix all headers to sticky top-0 z-50
+3. Fix ChatViewScreen: messages container = flex-1 overflow-y-auto scroll-smooth, input bar sticky bottom-0
+4. Add MediaGalleryScreen component (Media/Links/Docs tabs, image grid)
+5. Add StarredMessagesScreen component
+6. Add BroadcastListsScreen component
+7. Add QRCodeScreen component
+8. Expand SettingsPanel: Account sub-screen, Privacy sub-screen (full options), Notifications sub-screen (full), Chats sub-screen (full)
+9. Add profile photo upload (file input hidden, triggered by camera icon on avatar)
+10. Add cover photo upload on Edit Profile screen
+11. Wire Updates 3-dot menu: Advertise, Create channel, Status privacy, Starred, Status archive settings, Settings
+12. Wire Calls 3-dot menu: Advertise, Clear call log, Scheduled calls, Settings
+13. Make all attachment sheet buttons show toast on tap
+14. Connect MediaGalleryScreen from Contact Info "Media links and docs" option

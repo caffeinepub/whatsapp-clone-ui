@@ -10,6 +10,7 @@ export interface ChatMessage {
   reactions?: string[];
   tickState?: "none" | "single" | "double" | "seen";
   voiceDuration?: string;
+  imageUrl?: string;
 }
 
 interface MessageContextMenuProps {

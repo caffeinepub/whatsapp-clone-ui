@@ -26,6 +26,7 @@ import {
   Lock,
   MessageCircle,
   Moon,
+  QrCode,
   Smartphone,
   User,
 } from "lucide-react";
@@ -42,23 +43,72 @@ interface SettingsScreenProps {
   onUpdateProfile: (name: string, bio: string) => void;
   wallpaper: WallpaperType;
   onWallpaperChange: (w: WallpaperType) => void;
+  onOpenQRCode?: () => void;
 }
 
 function SettingRow({
   label,
+  description,
   children,
   separator = true,
 }: {
   label: string;
+  description?: string;
   children?: React.ReactNode;
   separator?: boolean;
 }) {
   return (
     <>
       <div className="flex items-center justify-between px-4 py-3.5">
-        <p className="font-medium text-[15px] text-foreground">{label}</p>
+        <div className="flex-1 min-w-0 mr-3">
+          <p className="font-medium text-[15px] text-foreground">{label}</p>
+          {description && (
+            <p className="text-[12px] text-muted-foreground mt-0.5">
+              {description}
+            </p>
+          )}
+        </div>
         {children}
       </div>
+      {separator && <Separator className="ml-4" />}
+    </>
+  );
+}
+
+function SettingButton({
+  label,
+  value,
+  onClick,
+  separator = true,
+  destructive = false,
+}: {
+  label: string;
+  value?: string;
+  onClick?: () => void;
+  separator?: boolean;
+  destructive?: boolean;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left ${destructive ? "text-destructive" : ""}`}
+      >
+        <p
+          className={`font-medium text-[15px] ${destructive ? "text-destructive" : "text-foreground"}`}
+        >
+          {label}
+        </p>
+        <div className="flex items-center gap-2">
+          {value && (
+            <span className="text-[13px] text-muted-foreground">{value}</span>
+          )}
+          {!destructive && (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )}
+        </div>
+      </button>
       {separator && <Separator className="ml-4" />}
     </>
   );
@@ -185,28 +235,38 @@ export default function SettingsScreen({
   onUpdateProfile,
   wallpaper,
   onWallpaperChange,
+  onOpenQRCode,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
 
-  // Account panel state
-  const [onlineStatus, setOnlineStatus] = useState(true);
+  // Account state
   const [twoStep, setTwoStep] = useState(false);
+  const [passkeys, setPasskeys] = useState(false);
+  const [securityNotifs, setSecurityNotifs] = useState(true);
 
-  // Privacy panel state
-  const [lastSeen, setLastSeen] = useState("everyone");
+  // Privacy state
+  const [lastSeen, setLastSeen] = useState("nobody");
   const [profilePhoto, setProfilePhoto] = useState("everyone");
+  const [about, setAbout] = useState("everyone");
+  const [statusPrivacy, setStatusPrivacy] = useState("contacts");
   const [readReceipts, setReadReceipts] = useState(true);
+  const [showPrivacyBanner, setShowPrivacyBanner] = useState(true);
 
   // Notifications state
-  const [msgNotif, setMsgNotif] = useState(true);
-  const [groupNotif, setGroupNotif] = useState(true);
-  const [callNotif, setCallNotif] = useState(true);
-  const [notifSound, setNotifSound] = useState("default");
+  const [convTones, setConvTones] = useState(false);
+  const [reminders, setReminders] = useState(true);
+  const [_notifTone, _setNotifTone] = useState("default");
+  const [_vibrate, _setVibrate] = useState("default");
+  const [highPriority, setHighPriority] = useState(false);
+  const [reactionNotifs, setReactionNotifs] = useState(true);
 
   // Chats state
-  const [fontSize, setFontSize] = useState("medium");
+  const [fontSize, setFontSize] = useState("small");
+  const [enterIsSend, setEnterIsSend] = useState(false);
+  const [mediaVisibility, setMediaVisibility] = useState(true);
+  const [keepArchived, setKeepArchived] = useState(true);
 
   // Appearance state
   const [appearFontSize, setAppearFontSize] = useState("medium");
@@ -218,9 +278,9 @@ export default function SettingsScreen({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Sticky Header */}
       <header
-        className="bg-wa-header px-4 pb-3 flex-shrink-0"
+        className="sticky top-0 z-50 bg-wa-header px-4 pb-3 flex-shrink-0"
         style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
       >
         <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
@@ -231,23 +291,40 @@ export default function SettingsScreen({
       <main className="flex-1 overflow-y-auto bg-secondary/30">
         {/* Profile row */}
         <div className="bg-card px-4 py-4 border-b border-border">
-          <button
-            type="button"
-            data-ocid="settings.profile.button"
-            onClick={() => setProfileOpen(true)}
-            className="flex items-center gap-4 w-full hover:bg-muted/40 rounded-xl p-2 -mx-2 transition-colors text-left"
-          >
-            <ContactAvatar initials="ME" size="lg" colorIndex={2} />
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-[18px] text-foreground font-display">
-                {userProfile.name}
-              </p>
-              <p className="text-[13px] text-muted-foreground truncate">
-                {userProfile.bio}
-              </p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              data-ocid="settings.profile.button"
+              onClick={() => setProfileOpen(true)}
+              className="flex items-center gap-4 flex-1 hover:bg-muted/40 rounded-xl p-2 -mx-2 transition-colors text-left"
+            >
+              <ContactAvatar
+                initials={userProfile.name.slice(0, 2).toUpperCase()}
+                size="lg"
+                colorIndex={2}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-[18px] text-foreground font-display">
+                  {userProfile.name}
+                </p>
+                <p className="text-[13px] text-muted-foreground truncate">
+                  {userProfile.bio}
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            </button>
+
+            {/* QR Code icon */}
+            <button
+              type="button"
+              data-ocid="settings.qrcode.button"
+              onClick={onOpenQRCode}
+              className="w-10 h-10 bg-muted/60 rounded-xl flex items-center justify-center hover:bg-muted transition-colors flex-shrink-0"
+              aria-label="QR code"
+            >
+              <QrCode className="w-5 h-5 text-foreground" />
+            </button>
+          </div>
         </div>
 
         <div className="py-3 space-y-3">
@@ -325,37 +402,50 @@ export default function SettingsScreen({
         onSave={onUpdateProfile}
       />
 
-      {/* Account panel */}
+      {/* =================== ACCOUNT PANEL =================== */}
       <SettingsPanel
         title="Account"
         open={openPanel === "account"}
         onClose={() => setOpenPanel(null)}
       >
-        <div className="bg-card mt-3 mx-0">
-          <SettingRow label="Online status">
+        <div className="bg-card mt-3">
+          <SettingRow
+            label="Security notifications"
+            description="Get notified about security changes to your account"
+          >
             <Switch
-              checked={onlineStatus}
-              onCheckedChange={setOnlineStatus}
-              data-ocid="settings.account.online.switch"
+              checked={securityNotifs}
+              onCheckedChange={setSecurityNotifs}
+              data-ocid="settings.account.security.switch"
             />
           </SettingRow>
-          <SettingRow label="Two-step verification">
+          <SettingRow
+            label="Passkeys"
+            description="Use your fingerprint or face to log in faster"
+          >
+            <Switch
+              checked={passkeys}
+              onCheckedChange={setPasskeys}
+              data-ocid="settings.account.passkeys.switch"
+            />
+          </SettingRow>
+          <SettingButton label="Email address" value="Not set" />
+          <SettingRow
+            label="Two-step verification"
+            description="Add a PIN for extra security"
+          >
             <Switch
               checked={twoStep}
               onCheckedChange={setTwoStep}
               data-ocid="settings.account.twostep.switch"
             />
           </SettingRow>
-          <SettingRow label="Change Number">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <SettingRow label="Request account info">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <SettingRow label="Add account" separator={false}>
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <Separator />
+          <SettingButton label="Business Platform" />
+          <SettingButton label="Change phone number" />
+          <SettingButton label="Request account info" />
+          <SettingButton label="Add account" separator={false} />
+        </div>
+        <div className="bg-card mt-3">
           <button
             type="button"
             data-ocid="settings.account.delete.button"
@@ -367,101 +457,197 @@ export default function SettingsScreen({
         </div>
       </SettingsPanel>
 
-      {/* Privacy panel */}
+      {/* =================== PRIVACY PANEL =================== */}
       <SettingsPanel
         title="Privacy"
         open={openPanel === "privacy"}
         onClose={() => setOpenPanel(null)}
       >
+        {/* Privacy checkup banner */}
+        {showPrivacyBanner && (
+          <div className="mx-3 mt-3 bg-wa-green/10 border border-wa-green/30 rounded-2xl px-4 py-3 flex items-start gap-2">
+            <div className="flex-1">
+              <p className="font-semibold text-[14px] text-wa-green">
+                Privacy checkup
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                Review and update your privacy settings
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPrivacyBanner(false)}
+              className="text-muted-foreground hover:text-foreground p-1"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         <div className="bg-card mt-3">
-          <SettingRow label="Last seen">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Who can see my personal info
+            </p>
+          </div>
+          <SettingRow label="Last seen and online">
             <Select value={lastSeen} onValueChange={setLastSeen}>
               <SelectTrigger
-                data-ocid="settings.privacy.select"
+                data-ocid="settings.privacy.lastseen.select"
                 className="w-32 h-8 text-[13px]"
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="everyone">Everyone</SelectItem>
-                <SelectItem value="contacts">Contacts</SelectItem>
+                <SelectItem value="contacts">My contacts</SelectItem>
                 <SelectItem value="nobody">Nobody</SelectItem>
               </SelectContent>
             </Select>
           </SettingRow>
-          <SettingRow label="Profile photo">
+          <SettingRow label="Profile picture">
             <Select value={profilePhoto} onValueChange={setProfilePhoto}>
               <SelectTrigger
-                data-ocid="settings.photo.select"
+                data-ocid="settings.privacy.photo.select"
                 className="w-32 h-8 text-[13px]"
               >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="everyone">Everyone</SelectItem>
-                <SelectItem value="contacts">Contacts</SelectItem>
+                <SelectItem value="contacts">My contacts</SelectItem>
                 <SelectItem value="nobody">Nobody</SelectItem>
               </SelectContent>
             </Select>
           </SettingRow>
-          <SettingRow label="Read receipts" separator={false}>
+          <SettingRow label="About">
+            <Select value={about} onValueChange={setAbout}>
+              <SelectTrigger
+                data-ocid="settings.privacy.about.select"
+                className="w-32 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="everyone">Everyone</SelectItem>
+                <SelectItem value="contacts">My contacts</SelectItem>
+                <SelectItem value="nobody">Nobody</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Status">
+            <Select value={statusPrivacy} onValueChange={setStatusPrivacy}>
+              <SelectTrigger
+                data-ocid="settings.privacy.status.select"
+                className="w-32 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="everyone">Everyone</SelectItem>
+                <SelectItem value="contacts">My contacts</SelectItem>
+                <SelectItem value="nobody">Nobody</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow
+            label="Read receipts"
+            description="If turned off, you won't send or receive read receipts"
+            separator={false}
+          >
             <Switch
-              data-ocid="settings.receipts.switch"
+              data-ocid="settings.privacy.receipts.switch"
               checked={readReceipts}
               onCheckedChange={setReadReceipts}
-              aria-label="Toggle read receipts"
             />
           </SettingRow>
         </div>
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Disappearing messages
+            </p>
+          </div>
+          <SettingButton
+            label="Default message timer"
+            value="24 hours"
+            separator={false}
+          />
+        </div>
       </SettingsPanel>
 
-      {/* Notifications panel */}
+      {/* =================== NOTIFICATIONS PANEL =================== */}
       <SettingsPanel
         title="Notifications"
         open={openPanel === "notifications"}
         onClose={() => setOpenPanel(null)}
       >
         <div className="bg-card mt-3">
-          <SettingRow label="Message notifications">
+          <SettingRow
+            label="Conversation tones"
+            description="Play sounds for outgoing and incoming messages"
+          >
             <Switch
-              data-ocid="settings.msg_notif.switch"
-              checked={msgNotif}
-              onCheckedChange={setMsgNotif}
+              data-ocid="settings.notif.tones.switch"
+              checked={convTones}
+              onCheckedChange={setConvTones}
             />
           </SettingRow>
-          <SettingRow label="Group notifications">
+          <SettingRow
+            label="Reminders"
+            description="Periodically notify about unread messages"
+            separator={false}
+          >
             <Switch
-              data-ocid="settings.group_notif.switch"
-              checked={groupNotif}
-              onCheckedChange={setGroupNotif}
+              data-ocid="settings.notif.reminders.switch"
+              checked={reminders}
+              onCheckedChange={setReminders}
             />
           </SettingRow>
-          <SettingRow label="Call notifications">
+        </div>
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Messages
+            </p>
+          </div>
+          <SettingButton
+            label="Notification tone"
+            value="Default (WaterDrop_preview.ogg)"
+          />
+          <SettingButton label="Vibrate" value="Default" />
+          <SettingRow label="Popup notification">
+            <span className="text-[13px] text-muted-foreground/60">
+              Not available
+            </span>
+          </SettingRow>
+          <SettingButton label="Light" value="White" />
+          <SettingRow
+            label="Use high priority notifications"
+            description="Show previews of notifications at the top of the screen"
+          >
             <Switch
-              data-ocid="settings.call_notif.switch"
-              checked={callNotif}
-              onCheckedChange={setCallNotif}
+              data-ocid="settings.notif.highpriority.switch"
+              checked={highPriority}
+              onCheckedChange={setHighPriority}
             />
           </SettingRow>
-          <SettingRow label="Sound" separator={false}>
-            <Select value={notifSound} onValueChange={setNotifSound}>
-              <SelectTrigger
-                data-ocid="settings.sound.select"
-                className="w-28 h-8 text-[13px]"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
-                <SelectItem value="chime">Chime</SelectItem>
-                <SelectItem value="none">None</SelectItem>
-              </SelectContent>
-            </Select>
+          <SettingRow
+            label="Reaction notifications"
+            description="Receive notifications for message reactions"
+            separator={false}
+          >
+            <Switch
+              data-ocid="settings.notif.reactions.switch"
+              checked={reactionNotifs}
+              onCheckedChange={setReactionNotifs}
+            />
           </SettingRow>
         </div>
       </SettingsPanel>
 
-      {/* Storage and Data panel */}
+      {/* =================== STORAGE PANEL =================== */}
       <SettingsPanel
         title="Storage and Data"
         open={openPanel === "storage"}
@@ -520,21 +706,65 @@ export default function SettingsScreen({
         </div>
       </SettingsPanel>
 
-      {/* Chats panel */}
+      {/* =================== CHATS PANEL =================== */}
       <SettingsPanel
         title="Chats"
         open={openPanel === "chats"}
         onClose={() => setOpenPanel(null)}
       >
         <div className="bg-card mt-3">
-          <SettingRow label="Dark theme">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Display
+            </p>
+          </div>
+          <SettingButton label="Theme" value="Dark" />
+          <SettingButton label="Default chat theme" separator={false} />
+        </div>
+
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Chat settings
+            </p>
+          </div>
+          <SettingRow
+            label="Enter is send"
+            description="Return key will send your message"
+          >
             <Switch
-              data-ocid="settings.chats_dark.switch"
-              checked={darkMode}
-              onCheckedChange={toggleDarkMode}
-              aria-label="Toggle dark mode"
+              data-ocid="settings.chats.enter_send.switch"
+              checked={enterIsSend}
+              onCheckedChange={setEnterIsSend}
             />
           </SettingRow>
+          <SettingRow
+            label="Media visibility"
+            description="Show newly downloaded media in your phone's gallery"
+          >
+            <Switch
+              data-ocid="settings.chats.media_vis.switch"
+              checked={mediaVisibility}
+              onCheckedChange={setMediaVisibility}
+            />
+          </SettingRow>
+          <SettingRow label="Font size">
+            <Select value={fontSize} onValueChange={setFontSize}>
+              <SelectTrigger
+                data-ocid="settings.chat_font.select"
+                className="w-28 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="small">Small</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="large">Large</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+
+          {/* Chat background inline */}
           <button
             type="button"
             onClick={() => setWallpaperOpen((p) => !p)}
@@ -548,7 +778,6 @@ export default function SettingsScreen({
             />
           </button>
 
-          {/* Wallpaper picker inline */}
           {wallpaperOpen && (
             <div
               data-ocid="settings.wallpaper.panel"
@@ -568,11 +797,7 @@ export default function SettingsScreen({
                     aria-pressed={wallpaper === opt.id}
                   >
                     <div
-                      className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${
-                        wallpaper === opt.id
-                          ? `${opt.border} ring-2 ring-offset-1 ring-wa-green`
-                          : "border-border"
-                      }`}
+                      className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${wallpaper === opt.id ? `${opt.border} ring-2 ring-offset-1 ring-wa-green` : "border-border"}`}
                     />
                     <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
                       {opt.label}
@@ -582,27 +807,50 @@ export default function SettingsScreen({
               </div>
             </div>
           )}
+        </div>
 
-          <Separator className="ml-4" />
-          <SettingRow label="Font size" separator={false}>
-            <Select value={fontSize} onValueChange={setFontSize}>
-              <SelectTrigger
-                data-ocid="settings.chat_font.select"
-                className="w-28 h-8 text-[13px]"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="small">Small</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="large">Large</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Archived chats
+            </p>
+          </div>
+          <SettingRow
+            label="Keep chats archived"
+            description="Archived chats will remain archived when you receive a new message"
+            separator={false}
+          >
+            <Switch
+              data-ocid="settings.chats.keep_archived.switch"
+              checked={keepArchived}
+              onCheckedChange={setKeepArchived}
+            />
           </SettingRow>
+        </div>
+
+        <div className="bg-card mt-3">
+          <button
+            type="button"
+            data-ocid="settings.chats.backup.button"
+            className="flex items-center gap-4 w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center">
+              <span className="text-lg">☁️</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-[15px] text-foreground">
+                Chat backup
+              </p>
+              <p className="text-[12px] text-muted-foreground">
+                Back up chats to Google Drive
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
       </SettingsPanel>
 
-      {/* Appearance panel */}
+      {/* =================== APPEARANCE PANEL =================== */}
       <SettingsPanel
         title="Appearance"
         open={openPanel === "appearance"}
@@ -644,7 +892,7 @@ export default function SettingsScreen({
         </div>
       </SettingsPanel>
 
-      {/* Linked Devices panel */}
+      {/* =================== LINKED DEVICES PANEL =================== */}
       <SettingsPanel
         title="Linked Devices"
         open={openPanel === "linked"}
@@ -675,27 +923,19 @@ export default function SettingsScreen({
         </div>
       </SettingsPanel>
 
-      {/* Help panel */}
+      {/* =================== HELP PANEL =================== */}
       <SettingsPanel
         title="Help"
         open={openPanel === "help"}
         onClose={() => setOpenPanel(null)}
       >
         <div className="bg-card mt-3">
-          <SettingRow label="FAQ">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <SettingRow label="Contact us">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <SettingRow label="Privacy policy">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
-          <SettingRow label="Terms of service">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
+          <SettingButton label="FAQ" />
+          <SettingButton label="Contact us" />
+          <SettingButton label="Privacy policy" />
+          <SettingButton label="Terms of service" />
           <SettingRow label="App info" separator={false}>
-            <span className="text-[13px] text-muted-foreground">v3.0.0</span>
+            <span className="text-[13px] text-muted-foreground">v6.0.0</span>
           </SettingRow>
         </div>
       </SettingsPanel>

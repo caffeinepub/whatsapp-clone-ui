@@ -35,6 +35,9 @@ interface ChatListScreenProps {
   onOpenChat: (conversationId: bigint) => void;
   onNewGroup?: () => void;
   extraConversations?: ExtraConversation[];
+  onOpenBroadcast?: () => void;
+  onOpenStarred?: () => void;
+  onOpenSettings?: () => void;
 }
 
 function formatTimestamp(ts?: bigint): string {
@@ -45,15 +48,10 @@ function formatTimestamp(ts?: bigint): string {
   const diffDays = Math.floor(
     (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
   );
-  if (diffDays === 0) {
+  if (diffDays === 0)
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-  if (diffDays === 1) {
-    return "Yesterday";
-  }
-  if (diffDays < 7) {
-    return date.toLocaleDateString([], { weekday: "short" });
-  }
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return date.toLocaleDateString([], { weekday: "short" });
   return date.toLocaleDateString([], { day: "2-digit", month: "2-digit" });
 }
 
@@ -229,6 +227,9 @@ export default function ChatListScreen({
   onOpenChat,
   onNewGroup,
   extraConversations = [],
+  onOpenBroadcast,
+  onOpenStarred,
+  onOpenSettings,
 }: ChatListScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -244,11 +245,9 @@ export default function ChatListScreen({
   const { data: contacts, isLoading: contactsLoading } = useContacts();
 
   const isLoading = convsLoading || contactsLoading;
-
   const contactMap: Map<string, Contact> = new Map(
     (contacts ?? []).map((c) => [c.id.toString(), c]),
   );
-
   const hasRealData = !isLoading && (conversations?.length ?? 0) > 0;
 
   const getChatState = (id: string) =>
@@ -266,7 +265,6 @@ export default function ChatListScreen({
     ...SEED_CONVERSATIONS,
   ];
 
-  // Apply filter
   const filteredSeedConversations = allSeedConversations.filter((item) => {
     const state = getChatState(item.id.toString());
     const nameMatch = item.contactName
@@ -291,9 +289,9 @@ export default function ChatListScreen({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Sticky Header */}
       <header
-        className="bg-wa-header px-4 flex-shrink-0"
+        className="sticky top-0 z-50 bg-wa-header px-4 flex-shrink-0"
         style={{
           paddingTop: "calc(env(safe-area-inset-top, 0px) + 4px)",
           paddingBottom: "8px",
@@ -304,7 +302,6 @@ export default function ChatListScreen({
             WhatsApp
           </h1>
           <div className="flex items-center gap-0">
-            {/* Camera icon */}
             <button
               type="button"
               data-ocid="chatlist.camera.button"
@@ -315,7 +312,6 @@ export default function ChatListScreen({
               <Camera className="w-5 h-5" />
             </button>
 
-            {/* 3-dot dropdown menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -348,6 +344,7 @@ export default function ChatListScreen({
                 <DropdownMenuItem
                   data-ocid="chatlist.menu.broadcasts"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenBroadcast}
                 >
                   Business broadcasts
                 </DropdownMenuItem>
@@ -372,12 +369,14 @@ export default function ChatListScreen({
                 <DropdownMenuItem
                   data-ocid="chatlist.menu.starred"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenStarred}
                 >
                   Starred
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chatlist.menu.settings"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenSettings}
                 >
                   Settings
                 </DropdownMenuItem>
@@ -399,8 +398,8 @@ export default function ChatListScreen({
         </div>
       </header>
 
-      {/* Filter chips */}
-      <div className="bg-wa-header px-3 pb-2 flex-shrink-0 overflow-x-auto">
+      {/* Filter chips — sticky below header */}
+      <div className="sticky top-[88px] z-40 bg-wa-header px-3 pb-2 flex-shrink-0 overflow-x-auto">
         <div className="flex items-center gap-2 min-w-max">
           {FILTER_TABS.map((tab) => (
             <button
@@ -531,11 +530,7 @@ export default function ChatListScreen({
                         <VolumeX className="w-3 h-3 text-muted-foreground/60" />
                       )}
                       <span
-                        className={`text-[11px] ${
-                          hasUnread
-                            ? "text-wa-green font-semibold"
-                            : "text-wa-timestamp"
-                        }`}
+                        className={`text-[11px] ${hasUnread ? "text-wa-green font-semibold" : "text-wa-timestamp"}`}
                       >
                         {item.time}
                       </span>
@@ -547,9 +542,7 @@ export default function ChatListScreen({
                     </p>
                     {hasUnread && (
                       <span
-                        className={`text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 flex-shrink-0 ${
-                          isMuted ? "bg-muted-foreground/50" : "bg-wa-unread"
-                        }`}
+                        className={`text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5 flex-shrink-0 ${isMuted ? "bg-muted-foreground/50" : "bg-wa-unread"}`}
                       >
                         {item.unread > 99 ? "99+" : item.unread || ""}
                       </span>
@@ -560,7 +553,6 @@ export default function ChatListScreen({
             );
           })}
 
-        {/* No results empty state */}
         {!isLoading &&
           filteredSeedConversations.length === 0 &&
           !hasRealData && (

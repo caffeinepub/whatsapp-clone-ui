@@ -22,6 +22,7 @@ import {
   Check,
   CheckCheck,
   File,
+  MapPin,
   Mic,
   MoreVertical,
   Paperclip,
@@ -56,6 +57,7 @@ interface ChatViewScreenProps {
   onBack: () => void;
   onOpenCall: (contact: ActiveCall) => void;
   wallpaper?: WallpaperType;
+  onOpenMediaGallery?: (contactName: string) => void;
 }
 
 function formatMessageTime(ts: bigint): string {
@@ -190,7 +192,7 @@ function getWallpaperClass(wallpaper?: WallpaperType): string {
   }
 }
 
-// Animated waveform for voice messages — use stable position-keyed entries
+// Animated waveform
 const WAVEFORM_BARS: { pos: number; height: number }[] = [
   { pos: 0, height: 4 },
   { pos: 1, height: 8 },
@@ -234,17 +236,13 @@ function VoiceWaveform({ isRecording = false }: { isRecording?: boolean }) {
 // Tick icon component
 function MessageTicks({ state }: { state: TickState }) {
   if (state === "none") return null;
-  if (state === "single") {
+  if (state === "single")
     return <Check className="w-3 h-3 text-wa-timestamp inline-block" />;
-  }
-  if (state === "double") {
+  if (state === "double")
     return <CheckCheck className="w-3 h-3 text-wa-timestamp inline-block" />;
-  }
-  // seen - green double check
   return <CheckCheck className="w-3 h-3 text-wa-green inline-block" />;
 }
 
-// Date separator pill
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center my-3">
@@ -255,14 +253,10 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-// Reply context bar shown above the input
 function ReplyPreview({
   message,
   onClose,
-}: {
-  message: ChatMessage;
-  onClose: () => void;
-}) {
+}: { message: ChatMessage; onClose: () => void }) {
   return (
     <div
       data-ocid="chat.reply.preview"
@@ -290,7 +284,6 @@ function ReplyPreview({
   );
 }
 
-// Typing indicator bubble
 function TypingIndicator() {
   return (
     <div className="flex justify-start mb-2">
@@ -312,7 +305,6 @@ function TypingIndicator() {
   );
 }
 
-// Main bubble component
 function MessageBubble({
   msg,
   onLongPress,
@@ -332,18 +324,13 @@ function MessageBubble({
       onLongPress(msg);
     }, 600);
   };
-
   const cancelLongPress = () => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-    }
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
   };
 
-  // Highlight matching text
   const renderContent = (text: string) => {
-    if (!searchTerm || !text.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (!searchTerm || !text.toLowerCase().includes(searchTerm.toLowerCase()))
       return <span>{text}</span>;
-    }
     const idx = text.toLowerCase().indexOf(searchTerm.toLowerCase());
     return (
       <>
@@ -366,11 +353,7 @@ function MessageBubble({
       <div
         className={`
           relative max-w-[75%] rounded-2xl px-3 py-2 shadow-bubble text-[14px]
-          ${
-            isSent
-              ? "bg-wa-sent text-wa-sent-fg rounded-br-sm bubble-sent"
-              : "bg-wa-received text-wa-received-fg rounded-bl-sm bubble-received"
-          }
+          ${isSent ? "bg-wa-sent text-wa-sent-fg rounded-br-sm bubble-sent" : "bg-wa-received text-wa-received-fg rounded-bl-sm bubble-received"}
           ${isHighlighted ? "ring-2 ring-yellow-400" : ""}
           cursor-pointer select-none
         `}
@@ -385,7 +368,6 @@ function MessageBubble({
         onMouseUp={cancelLongPress}
         onMouseLeave={cancelLongPress}
       >
-        {/* Reply context */}
         {msg.replyTo && (
           <div
             className={`rounded-lg px-2 py-1.5 mb-1.5 border-l-[3px] border-wa-green ${isSent ? "bg-wa-sent-fg/10" : "bg-muted/50"}`}
@@ -399,7 +381,6 @@ function MessageBubble({
           </div>
         )}
 
-        {/* Voice message */}
         {msg.type === "voice" ? (
           <div className="flex items-center gap-2 pr-8 min-w-[140px]">
             <div className="w-8 h-8 bg-wa-green rounded-full flex items-center justify-center flex-shrink-0">
@@ -412,10 +393,20 @@ function MessageBubble({
           </div>
         ) : msg.type === "image" ? (
           <div className="pr-8">
-            <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center mb-1">
-              <span className="text-2xl">📷</span>
-            </div>
-            <p className="text-[12px] opacity-70">Photo</p>
+            {msg.imageUrl ? (
+              <img
+                src={msg.imageUrl}
+                alt="Sent"
+                className="w-full max-h-48 rounded-lg object-cover mb-1"
+              />
+            ) : (
+              <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center mb-1">
+                <span className="text-2xl">📷</span>
+              </div>
+            )}
+            <p className="text-[12px] opacity-70">
+              {msg.imageUrl ? "Photo" : "Photo"}
+            </p>
           </div>
         ) : (
           <p className="leading-snug break-words pr-8">
@@ -423,7 +414,6 @@ function MessageBubble({
           </p>
         )}
 
-        {/* Time + ticks */}
         <span className="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] opacity-60 whitespace-nowrap">
           {msg.time}
           {isSent && msg.tickState && msg.tickState !== "none" && (
@@ -432,7 +422,6 @@ function MessageBubble({
         </span>
       </div>
 
-      {/* Reactions */}
       {msg.reactions && msg.reactions.length > 0 && (
         <div
           className={`absolute -bottom-3 ${isSent ? "right-2" : "left-2"} flex gap-0.5 z-10`}
@@ -451,14 +440,10 @@ function MessageBubble({
   );
 }
 
-// Reaction panel
 function ReactionPanel({
   onSelect,
   onClose,
-}: {
-  onSelect: (emoji: string) => void;
-  onClose: () => void;
-}) {
+}: { onSelect: (emoji: string) => void; onClose: () => void }) {
   return (
     <>
       <div
@@ -492,11 +477,17 @@ function ReactionPanel({
   );
 }
 
+// Extended ChatMessage type with imageUrl
+interface ExtChatMessage extends ChatMessage {
+  imageUrl?: string;
+}
+
 export default function ChatViewScreen({
   conversationId,
   onBack,
   onOpenCall,
   wallpaper,
+  onOpenMediaGallery,
 }: ChatViewScreenProps) {
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -507,19 +498,16 @@ export default function ChatViewScreen({
   const [reactTarget, setReactTarget] = useState<ChatMessage | null>(null);
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showClearChatConfirm, setShowClearChatConfirm] = useState(false);
-
-  // In-chat search
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
-
-  // Voice recording
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Typing indicator
   const [showTyping, setShowTyping] = useState(false);
+
+  // Hidden file input for gallery attachment
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -549,8 +537,7 @@ export default function ChatViewScreen({
   const rawSeedMessages =
     SEED_CHAT_MESSAGES[seedKey] ?? SEED_CHAT_MESSAGES.default;
 
-  // Local state for seed messages with enhanced fields
-  const [localMessages, setLocalMessages] = useState<ChatMessage[]>(() =>
+  const [localMessages, setLocalMessages] = useState<ExtChatMessage[]>(() =>
     rawSeedMessages.map((m, i) => ({
       id: `seed-${i}`,
       content: m.content,
@@ -582,7 +569,7 @@ export default function ChatViewScreen({
     const text = inputText.trim();
     if (!text || isSending) return;
 
-    const newMsg: ChatMessage = {
+    const newMsg: ExtChatMessage = {
       id: `local-${Date.now()}`,
       content: text,
       isSent: true,
@@ -603,7 +590,6 @@ export default function ChatViewScreen({
     setReplyTo(null);
     setShowEmojiPicker(false);
 
-    // Animate ticks: none → single → double → seen
     setTimeout(() => {
       setLocalMessages((prev) =>
         prev.map((m) =>
@@ -625,7 +611,6 @@ export default function ChatViewScreen({
       );
     }, 2500);
 
-    // Also send to backend
     sendMessage(
       { conversationId, content: text },
       { onError: () => toast.error("Failed to send message") },
@@ -639,7 +624,6 @@ export default function ChatViewScreen({
     }
   };
 
-  // Voice recording
   const startRecording = () => {
     setIsRecording(true);
     setRecordingSeconds(0);
@@ -651,15 +635,13 @@ export default function ChatViewScreen({
   const stopRecording = () => {
     if (!isRecording) return;
     setIsRecording(false);
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     const duration = recordingSeconds;
     const mins = Math.floor(duration / 60);
     const secs = duration % 60;
     const durationStr = `${mins}:${secs.toString().padStart(2, "0")}`;
 
-    const voiceMsg: ChatMessage = {
+    const voiceMsg: ExtChatMessage = {
       id: `voice-${Date.now()}`,
       content: "Voice message",
       isSent: true,
@@ -675,8 +657,6 @@ export default function ChatViewScreen({
     };
 
     setLocalMessages((prev) => [...prev, voiceMsg]);
-
-    // Tick animation
     setTimeout(() => {
       setLocalMessages((prev) =>
         prev.map((m) =>
@@ -706,30 +686,24 @@ export default function ChatViewScreen({
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  // Context menu handlers
   const handleContextMenuOpen = (msg: ChatMessage) => {
     setContextMsg(msg);
   };
-
   const handleReply = (msg: ChatMessage) => {
     setReplyTo(msg);
     inputRef.current?.focus();
   };
-
   const handleCopy = (msg: ChatMessage) => {
     navigator.clipboard.writeText(msg.content).catch(() => {});
     toast.success("Message copied");
   };
-
   const handleForward = () => {
     toast.success("Message forwarded");
   };
-
   const handleDelete = (msg: ChatMessage) => {
     setLocalMessages((prev) => prev.filter((m) => m.id !== msg.id));
     toast.success("Message deleted");
   };
-
   const handleReact = (msg: ChatMessage) => {
     setReactTarget(msg);
     setShowReactions(true);
@@ -746,7 +720,40 @@ export default function ChatViewScreen({
     );
   };
 
-  // In-chat search matching
+  // Handle gallery image selection
+  const handleGalleryFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setShowAttachSheet(false);
+    const imageUrl = URL.createObjectURL(file);
+    const imgMsg: ExtChatMessage = {
+      id: `img-${Date.now()}`,
+      content: "Photo",
+      isSent: true,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      type: "image",
+      replyTo: null,
+      reactions: [],
+      tickState: "none",
+      imageUrl,
+    };
+    setLocalMessages((prev) => [...prev, imgMsg]);
+    toast.success(`Sent: ${file.name}`);
+    setTimeout(() => {
+      setLocalMessages((prev) =>
+        prev.map((m) =>
+          m.id === imgMsg.id ? { ...m, tickState: "double" } : m,
+        ),
+      );
+      triggerTypingIndicator();
+    }, 1000);
+    // reset input
+    e.target.value = "";
+  };
+
   const searchMatches = searchTerm
     ? localMessages
         .map((m, i) => ({ idx: i, msg: m }))
@@ -765,7 +772,6 @@ export default function ChatViewScreen({
 
   const currentSearchMatch = searchMatches[searchMatchIndex];
 
-  // Scroll to current match
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally runs on index change
   useEffect(() => {
     if (currentSearchMatch) {
@@ -774,35 +780,8 @@ export default function ChatViewScreen({
     }
   }, [searchMatchIndex, searchTerm]);
 
-  // Attach sheet - send a photo placeholder
-  const handleAttachImage = () => {
-    setShowAttachSheet(false);
-    const imgMsg: ChatMessage = {
-      id: `img-${Date.now()}`,
-      content: "Photo",
-      isSent: true,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      type: "image",
-      replyTo: null,
-      reactions: [],
-      tickState: "none",
-    };
-    setLocalMessages((prev) => [...prev, imgMsg]);
-    setTimeout(() => {
-      setLocalMessages((prev) =>
-        prev.map((m) =>
-          m.id === imgMsg.id ? { ...m, tickState: "double" } : m,
-        ),
-      );
-      triggerTypingIndicator();
-    }, 1000);
-  };
-
-  // Group messages by date label
-  const groupedMessages: { dateLabel: string; messages: ChatMessage[] }[] = [];
+  const groupedMessages: { dateLabel: string; messages: ExtChatMessage[] }[] =
+    [];
   if (!hasRealMessages) {
     const rawSeeds = rawSeedMessages;
     rawSeeds.forEach((raw, i) => {
@@ -815,7 +794,6 @@ export default function ChatViewScreen({
         lastGroup.messages.push(msg);
       }
     });
-    // Add new messages (without date labels) to the last group or TODAY
     const newMessages = localMessages.slice(rawSeeds.length);
     if (newMessages.length > 0) {
       const lastGroup = groupedMessages[groupedMessages.length - 1];
@@ -831,8 +809,8 @@ export default function ChatViewScreen({
 
   return (
     <div className="flex flex-col h-full animate-slide-up">
-      {/* Chat header */}
-      <header className="bg-wa-header flex flex-col flex-shrink-0">
+      {/* Sticky Chat header */}
+      <header className="sticky top-0 z-50 bg-wa-header flex flex-col flex-shrink-0">
         <div
           className="flex items-center gap-2 px-2 pb-2"
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
@@ -949,6 +927,10 @@ export default function ChatViewScreen({
                 <DropdownMenuItem
                   data-ocid="chat.menu.media"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => {
+                    setShowContactInfo(false);
+                    onOpenMediaGallery?.(contactName);
+                  }}
                 >
                   Media, links and docs
                 </DropdownMenuItem>
@@ -968,12 +950,14 @@ export default function ChatViewScreen({
                 <DropdownMenuItem
                   data-ocid="chat.menu.mute"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Notifications muted")}
                 >
                   Mute notifications
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.disappearing"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Disappearing messages settings")}
                 >
                   Disappearing messages
                 </DropdownMenuItem>
@@ -987,18 +971,21 @@ export default function ChatViewScreen({
                 <DropdownMenuItem
                   data-ocid="chat.menu.export"
                   className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Exporting chat...")}
                 >
                   Export chat
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.report"
                   className="text-[14px] py-2.5 cursor-pointer text-destructive"
+                  onClick={() => toast.error("Chat reported")}
                 >
                   Report
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.block"
                   className="text-[14px] py-2.5 cursor-pointer text-destructive"
+                  onClick={() => toast.error("Contact blocked")}
                 >
                   Block
                 </DropdownMenuItem>
@@ -1065,9 +1052,10 @@ export default function ChatViewScreen({
         )}
       </header>
 
-      {/* Message area */}
+      {/* Message area — smooth scrolling */}
       <main
-        className={`flex-1 overflow-y-auto px-3 py-3 relative ${wallpaperClass}`}
+        className={`flex-1 overflow-y-auto scroll-smooth px-3 py-3 relative ${wallpaperClass}`}
+        style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
       >
         {messagesLoading && (
           <div data-ocid="chat.loading_state" className="space-y-3">
@@ -1084,7 +1072,6 @@ export default function ChatViewScreen({
           </div>
         )}
 
-        {/* Real messages from backend */}
         {!messagesLoading &&
           hasRealMessages &&
           (messages ?? []).map((msg) => (
@@ -1093,12 +1080,7 @@ export default function ChatViewScreen({
               className={`flex ${msg.senderId === CURRENT_USER_ID ? "justify-end" : "justify-start"} mb-1`}
             >
               <div
-                className={`relative max-w-[75%] rounded-2xl px-3 py-2 shadow-bubble text-[14px]
-                ${
-                  msg.senderId === CURRENT_USER_ID
-                    ? "bg-wa-sent text-wa-sent-fg rounded-br-sm bubble-sent"
-                    : "bg-wa-received text-wa-received-fg rounded-bl-sm bubble-received"
-                }`}
+                className={`relative max-w-[75%] rounded-2xl px-3 py-2 shadow-bubble text-[14px] ${msg.senderId === CURRENT_USER_ID ? "bg-wa-sent text-wa-sent-fg rounded-br-sm bubble-sent" : "bg-wa-received text-wa-received-fg rounded-bl-sm bubble-received"}`}
               >
                 <p className="leading-snug break-words pr-8">{msg.content}</p>
                 <span className="absolute bottom-1.5 right-2 text-[10px] opacity-60 whitespace-nowrap">
@@ -1108,7 +1090,6 @@ export default function ChatViewScreen({
             </div>
           ))}
 
-        {/* Seed messages with date separators */}
         {!messagesLoading &&
           !hasRealMessages &&
           groupedMessages.map((group) => (
@@ -1129,12 +1110,9 @@ export default function ChatViewScreen({
             </div>
           ))}
 
-        {/* Typing indicator */}
         {showTyping && <TypingIndicator />}
-
         <div ref={messagesEndRef} />
 
-        {/* Reaction panel */}
         {showReactions && reactTarget && (
           <ReactionPanel
             onSelect={(emoji) => {
@@ -1169,6 +1147,10 @@ export default function ChatViewScreen({
           setSearchOpen(true);
           setShowContactInfo(false);
           setTimeout(() => searchInputRef.current?.focus(), 100);
+        }}
+        onOpenMediaGallery={(name) => {
+          setShowContactInfo(false);
+          onOpenMediaGallery?.(name);
         }}
       />
 
@@ -1222,7 +1204,7 @@ export default function ChatViewScreen({
 
       {/* Recording state */}
       {isRecording && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-card border-t border-border">
+        <div className="flex items-center gap-3 px-4 py-3 bg-card border-t border-border sticky bottom-0 z-10">
           <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
           <span className="text-[13px] text-red-500 font-medium">
             Recording...
@@ -1244,10 +1226,10 @@ export default function ChatViewScreen({
         </div>
       )}
 
-      {/* Input bar */}
+      {/* Input bar — sticky bottom */}
       {!isRecording && (
         <footer
-          className="flex items-center gap-2 px-2 py-2 bg-card border-t border-border flex-shrink-0"
+          className="sticky bottom-0 z-10 flex items-center gap-2 px-2 py-2 bg-background/95 backdrop-blur-sm border-t border-border flex-shrink-0"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 8px)" }}
         >
           <button
@@ -1310,7 +1292,17 @@ export default function ChatViewScreen({
         </footer>
       )}
 
-      {/* Attachment bottom sheet */}
+      {/* Hidden gallery file input */}
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleGalleryFileChange}
+        aria-label="Select image or video"
+      />
+
+      {/* Attachment bottom sheet — 11 options */}
       {showAttachSheet && (
         <>
           <div
@@ -1323,67 +1315,207 @@ export default function ChatViewScreen({
           />
           <div
             data-ocid="chat.attach.sheet"
-            className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl shadow-2xl animate-slide-up"
+            className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-3xl shadow-2xl animate-slide-up"
           >
-            <div className="flex justify-center pt-2 pb-1">
+            <div className="flex justify-center pt-2.5 pb-1">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
 
-            <div className="px-4 py-3 grid grid-cols-3 gap-3">
-              <button
-                type="button"
-                data-ocid="chat.attach.image.button"
-                onClick={handleAttachImage}
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="w-12 h-12 bg-pink-500 rounded-full flex items-center justify-center">
-                  <span className="text-[22px]">📷</span>
-                </div>
-                <span className="text-[12px] font-medium text-foreground">
-                  Image
-                </span>
-              </button>
-
-              <button
-                type="button"
-                data-ocid="chat.attach.video.button"
-                onClick={() => setShowAttachSheet(false)}
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                  <span className="text-[22px]">🎥</span>
-                </div>
-                <span className="text-[12px] font-medium text-foreground">
-                  Video
-                </span>
-              </button>
-
+            <div className="px-4 py-3 grid grid-cols-4 gap-3">
+              {/* Document */}
               <button
                 type="button"
                 data-ocid="chat.attach.document.button"
-                onClick={() => setShowAttachSheet(false)}
-                className="flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted/50 hover:bg-muted transition-colors"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Choose a document");
+                }}
+                className="flex flex-col items-center gap-2"
               >
-                <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                <div className="w-13 h-13 w-[52px] h-[52px] bg-purple-600 rounded-2xl flex items-center justify-center">
                   <File className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-[12px] font-medium text-foreground">
-                  Document
+                <span className="text-[11px] text-foreground">Document</span>
+              </button>
+
+              {/* Camera */}
+              <button
+                type="button"
+                data-ocid="chat.attach.camera.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Opening camera");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-red-500 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">📷</span>
+                </div>
+                <span className="text-[11px] text-foreground">Camera</span>
+              </button>
+
+              {/* Gallery — opens file picker */}
+              <button
+                type="button"
+                data-ocid="chat.attach.gallery.button"
+                onClick={() => {
+                  galleryInputRef.current?.click();
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-blue-500 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">🖼️</span>
+                </div>
+                <span className="text-[11px] text-foreground">Gallery</span>
+              </button>
+
+              {/* Audio */}
+              <button
+                type="button"
+                data-ocid="chat.attach.audio.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Choose audio");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-orange-500 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">🎵</span>
+                </div>
+                <span className="text-[11px] text-foreground">Audio</span>
+              </button>
+
+              {/* Catalogue */}
+              <button
+                type="button"
+                data-ocid="chat.attach.catalogue.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Business catalogue");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-gray-600 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">📦</span>
+                </div>
+                <span className="text-[11px] text-foreground">Catalogue</span>
+              </button>
+
+              {/* Quick Reply */}
+              <button
+                type="button"
+                data-ocid="chat.attach.quickreply.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Quick replies");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-yellow-500 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">⚡</span>
+                </div>
+                <span className="text-[11px] text-foreground">Quick Reply</span>
+              </button>
+
+              {/* Location */}
+              <button
+                type="button"
+                data-ocid="chat.attach.location.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Share location");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-green-600 rounded-2xl flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-[11px] text-foreground">Location</span>
+              </button>
+
+              {/* Contact */}
+              <button
+                type="button"
+                data-ocid="chat.attach.contact.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Share contact");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-blue-600 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">👤</span>
+                </div>
+                <span className="text-[11px] text-foreground">Contact</span>
+              </button>
+
+              {/* Poll */}
+              <button
+                type="button"
+                data-ocid="chat.attach.poll.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Create poll");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-orange-600 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">📊</span>
+                </div>
+                <span className="text-[11px] text-foreground">Poll</span>
+              </button>
+
+              {/* Event */}
+              <button
+                type="button"
+                data-ocid="chat.attach.event.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Create event");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-red-600 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">📅</span>
+                </div>
+                <span className="text-[11px] text-foreground">Event</span>
+              </button>
+
+              {/* Share UPI QR */}
+              <button
+                type="button"
+                data-ocid="chat.attach.upi.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  toast.info("Share UPI QR code");
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-indigo-600 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">💳</span>
+                </div>
+                <span className="text-[11px] text-foreground">
+                  Share UPI QR
+                </span>
+              </button>
+
+              {/* Cancel */}
+              <button
+                type="button"
+                data-ocid="chat.attach.cancel.button"
+                onClick={() => setShowAttachSheet(false)}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-muted rounded-2xl flex items-center justify-center">
+                  <X className="w-6 h-6 text-muted-foreground" />
+                </div>
+                <span className="text-[11px] text-muted-foreground">
+                  Cancel
                 </span>
               </button>
             </div>
 
-            <div className="px-4 pb-2 border-t border-border">
-              <button
-                type="button"
-                onClick={() => setShowAttachSheet(false)}
-                className="flex items-center gap-3 w-full px-1 py-3 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-5 h-5" />
-                <span className="text-[15px] font-medium">Cancel</span>
-              </button>
-            </div>
-            <div style={{ height: "env(safe-area-inset-bottom, 8px)" }} />
+            <div style={{ height: "env(safe-area-inset-bottom, 12px)" }} />
           </div>
         </>
       )}

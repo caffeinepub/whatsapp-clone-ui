@@ -1,4 +1,4 @@
-import { Circle, MessageCircle, Phone, Settings } from "lucide-react";
+import { Grid3X3, MessageSquare, Phone, Radio } from "lucide-react";
 import type { TabName } from "../App";
 
 interface BottomNavProps {
@@ -11,16 +11,16 @@ const tabs: {
   label: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
 }[] = [
-  { id: "chats", label: "Chats", icon: MessageCircle },
-  { id: "status", label: "Status", icon: Circle },
+  { id: "chats", label: "Chats", icon: MessageSquare },
+  { id: "status", label: "Updates", icon: Radio },
   { id: "calls", label: "Calls", icon: Phone },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "settings", label: "Settings", icon: Grid3X3 },
 ];
 
 export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav
-      className="flex items-center bg-wa-nav-bg border-t border-border"
+      className="sticky bottom-0 z-50 flex items-center bg-wa-nav-bg border-t border-border"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       {tabs.map((tab) => {

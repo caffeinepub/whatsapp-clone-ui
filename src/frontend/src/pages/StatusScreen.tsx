@@ -1,5 +1,12 @@
-import { Camera, Pencil } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Camera, MoreVertical, Pencil } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import ContactAvatar from "../components/ContactAvatar";
 import StatusPostDialog from "../components/StatusPostDialog";
 import type { UserStatus } from "../hooks/useAppState";
@@ -8,6 +15,8 @@ interface StatusScreenProps {
   onOpenStatusViewer: (index: number) => void;
   userStatuses: UserStatus[];
   onAddStatus: (text: string) => void;
+  onOpenStarred?: () => void;
+  onOpenSettings?: () => void;
 }
 
 const RECENT_UPDATES = [
@@ -45,21 +54,23 @@ export default function StatusScreen({
   onOpenStatusViewer,
   userStatuses,
   onAddStatus,
+  onOpenStarred,
+  onOpenSettings,
 }: StatusScreenProps) {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Sticky header */}
       <header
-        className="bg-wa-header px-4 pb-3 flex-shrink-0"
+        className="sticky top-0 z-50 bg-wa-header px-4 pb-3 flex-shrink-0"
         style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
       >
         <div className="flex items-center justify-between">
           <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
-            Status
+            Updates
           </h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0">
             <button
               type="button"
               data-ocid="status.pencil.button"
@@ -72,11 +83,73 @@ export default function StatusScreen({
             <button
               type="button"
               data-ocid="status.camera.button"
+              onClick={() => toast.info("Opening camera for status...")}
               className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg transition-colors rounded-full hover:bg-white/10"
               aria-label="Camera status"
             >
               <Camera className="w-5 h-5" />
             </button>
+            {/* 3-dot menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-ocid="status.menu.button"
+                  className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg transition-colors rounded-full hover:bg-white/10"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-52 bg-popover border-border shadow-lg z-50"
+                data-ocid="status.dropdown_menu"
+              >
+                <DropdownMenuItem
+                  data-ocid="status.menu.advertise"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Advertise on WhatsApp")}
+                >
+                  Advertise
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="status.menu.create_channel"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Creating a channel...")}
+                >
+                  Create channel
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="status.menu.privacy"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Status privacy settings")}
+                >
+                  Status privacy
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="status.menu.starred"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenStarred}
+                >
+                  Starred
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="status.menu.archive"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Status archive settings")}
+                >
+                  Status archive settings
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="status.menu.settings"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenSettings}
+                >
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>

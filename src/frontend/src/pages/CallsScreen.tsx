@@ -1,5 +1,22 @@
-import { Phone, Search, Video } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreVertical, Phone, Search, Video } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import ContactAvatar from "../components/ContactAvatar";
 import NewCallDialog from "../components/NewCallDialog";
 import type { ActiveCall } from "../hooks/useAppState";
@@ -58,19 +75,27 @@ const RECENT_CALLS = [
 
 export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
   const [newCallOpen, setNewCallOpen] = useState(false);
+  const [clearLogOpen, setClearLogOpen] = useState(false);
+  const [calls, setCalls] = useState(RECENT_CALLS);
+
+  const handleClearLog = () => {
+    setCalls([]);
+    setClearLogOpen(false);
+    toast.success("Call log cleared");
+  };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Sticky header */}
       <header
-        className="bg-wa-header px-4 pb-3 flex-shrink-0"
+        className="sticky top-0 z-50 bg-wa-header px-4 pb-3 flex-shrink-0"
         style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
       >
         <div className="flex items-center justify-between">
           <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
             Calls
           </h1>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0">
             <button
               type="button"
               data-ocid="calls.search.button"
@@ -79,6 +104,53 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
             >
               <Search className="w-5 h-5" />
             </button>
+            {/* 3-dot menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-ocid="calls.menu.button"
+                  className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg transition-colors rounded-full hover:bg-white/10"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-52 bg-popover border-border shadow-lg z-50"
+                data-ocid="calls.dropdown_menu"
+              >
+                <DropdownMenuItem
+                  data-ocid="calls.menu.advertise"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Advertise on WhatsApp")}
+                >
+                  Advertise
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="calls.menu.clear_log"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => setClearLogOpen(true)}
+                >
+                  Clear call log
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="calls.menu.scheduled"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("No scheduled calls")}
+                >
+                  Scheduled calls
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="calls.menu.settings"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => toast.info("Call settings")}
+                >
+                  Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
@@ -106,8 +178,24 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
           <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Recent
           </p>
+
+          {calls.length === 0 && (
+            <div
+              data-ocid="calls.empty_state"
+              className="flex flex-col items-center justify-center py-12 gap-3"
+            >
+              <Phone className="w-12 h-12 text-muted-foreground/40" />
+              <p className="text-[15px] font-semibold text-foreground">
+                No recent calls
+              </p>
+              <p className="text-[13px] text-muted-foreground text-center">
+                Your call history will appear here
+              </p>
+            </div>
+          )}
+
           <div className="space-y-1">
-            {RECENT_CALLS.map((call, i) => (
+            {calls.map((call, i) => (
               <button
                 type="button"
                 key={`${call.name}-${i}`}
@@ -181,6 +269,34 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
         onClose={() => setNewCallOpen(false)}
         onCall={onOpenCall}
       />
+
+      {/* Clear call log confirmation */}
+      <AlertDialog open={clearLogOpen} onOpenChange={setClearLogOpen}>
+        <AlertDialogContent
+          data-ocid="calls.clear_log.dialog"
+          className="max-w-[320px] rounded-2xl"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear call log?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All recent calls will be removed from your call history. This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="calls.clear_log.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="calls.clear_log.confirm_button"
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={handleClearLog}
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

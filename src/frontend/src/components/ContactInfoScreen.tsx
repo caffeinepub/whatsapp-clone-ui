@@ -22,6 +22,7 @@ interface ContactInfoScreenProps {
   colorIndex: number;
   onStartCall?: (type: "voice" | "video") => void;
   onOpenSearch?: () => void;
+  onOpenMediaGallery?: (contactName: string) => void;
 }
 
 const MEDIA_PLACEHOLDERS = [
@@ -39,6 +40,7 @@ export default function ContactInfoScreen({
   colorIndex,
   onStartCall,
   onOpenSearch,
+  onOpenMediaGallery,
 }: ContactInfoScreenProps) {
   const [muted, setMuted] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
@@ -161,7 +163,12 @@ export default function ContactInfoScreen({
             </p>
             <button
               type="button"
+              data-ocid="contact_info.media_gallery.button"
               className="text-[13px] text-wa-teal font-medium"
+              onClick={() => {
+                onClose();
+                onOpenMediaGallery?.(contactName);
+              }}
             >
               View all
             </button>
@@ -173,6 +180,10 @@ export default function ContactInfoScreen({
                 key={i}
                 type="button"
                 data-ocid={`contact_info.media.item.${i + 1}`}
+                onClick={() => {
+                  onClose();
+                  onOpenMediaGallery?.(contactName);
+                }}
                 className={`aspect-square rounded-lg ${item.bg} flex items-center justify-center text-2xl hover:opacity-90 transition-opacity`}
               >
                 {item.emoji}

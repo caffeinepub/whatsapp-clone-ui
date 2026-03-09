@@ -1,7 +1,11 @@
 import { Toaster } from "@/components/ui/sonner";
 import { useState } from "react";
 import BottomNav from "./components/BottomNav";
+import BroadcastListsScreen from "./components/BroadcastListsScreen";
 import CallOverlay from "./components/CallOverlay";
+import MediaGalleryScreen from "./components/MediaGalleryScreen";
+import QRCodeScreen from "./components/QRCodeScreen";
+import StarredMessagesScreen from "./components/StarredMessagesScreen";
 import StatusViewer from "./components/StatusViewer";
 import { useAppState } from "./hooks/useAppState";
 import CallsScreen from "./pages/CallsScreen";
@@ -11,7 +15,7 @@ import NewGroupScreen from "./pages/NewGroupScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import StatusScreen from "./pages/StatusScreen";
 
-export type TabName = "chats" | "status" | "calls" | "settings";
+export type TabName = "chats" | "calls" | "status" | "settings";
 type AppView = "main" | "new-group";
 
 // Extra conversations from new groups
@@ -62,6 +66,12 @@ export default function App() {
     typeof SEED_EXTRA_CONVS
   >([]);
 
+  // Stage 6 overlay states
+  const [starredOpen, setStarredOpen] = useState(false);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [qrCodeOpen, setQrCodeOpen] = useState(false);
+  const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
+
   const appState = useAppState();
 
   const handleOpenChat = (conversationId: bigint) => {
@@ -105,6 +115,9 @@ export default function App() {
               onBack={handleCloseChat}
               onOpenCall={appState.openCall}
               wallpaper={appState.wallpaper}
+              onOpenMediaGallery={(contactName) =>
+                setMediaGalleryFor(contactName)
+              }
             />
           ) : (
             <>
@@ -113,6 +126,9 @@ export default function App() {
                   onOpenChat={handleOpenChat}
                   onNewGroup={() => setAppView("new-group")}
                   extraConversations={seedConversations}
+                  onOpenBroadcast={() => setBroadcastOpen(true)}
+                  onOpenStarred={() => setStarredOpen(true)}
+                  onOpenSettings={() => setActiveTab("settings")}
                 />
               )}
               {activeTab === "status" && (
@@ -120,6 +136,8 @@ export default function App() {
                   onOpenStatusViewer={appState.openStatusViewer}
                   userStatuses={appState.userStatuses}
                   onAddStatus={appState.addUserStatus}
+                  onOpenStarred={() => setStarredOpen(true)}
+                  onOpenSettings={() => setActiveTab("settings")}
                 />
               )}
               {activeTab === "calls" && (
@@ -133,6 +151,7 @@ export default function App() {
                   onUpdateProfile={appState.updateProfile}
                   wallpaper={appState.wallpaper}
                   onWallpaperChange={appState.setWallpaper}
+                  onOpenQRCode={() => setQrCodeOpen(true)}
                 />
               )}
             </>
@@ -151,9 +170,29 @@ export default function App() {
               onClose={appState.closeStatusViewer}
             />
           )}
+
+          {/* Stage 6 overlay screens */}
+          {starredOpen && (
+            <StarredMessagesScreen onBack={() => setStarredOpen(false)} />
+          )}
+          {broadcastOpen && (
+            <BroadcastListsScreen onBack={() => setBroadcastOpen(false)} />
+          )}
+          {qrCodeOpen && (
+            <QRCodeScreen
+              onBack={() => setQrCodeOpen(false)}
+              userName={appState.userProfile.name}
+            />
+          )}
+          {mediaGalleryFor !== null && (
+            <MediaGalleryScreen
+              onBack={() => setMediaGalleryFor(null)}
+              contactName={mediaGalleryFor}
+            />
+          )}
         </div>
 
-        {/* Bottom nav — hidden when in chat view or new group */}
+        {/* Bottom nav — sticky, hidden when in chat view or new group */}
         {openConversationId === null && appView === "main" && (
           <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
         )}
