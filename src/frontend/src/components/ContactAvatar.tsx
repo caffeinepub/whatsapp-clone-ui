@@ -1,6 +1,6 @@
 interface ContactAvatarProps {
   initials: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   colorIndex?: number;
 }
 
@@ -22,6 +22,7 @@ const SIZE_MAP = {
   sm: "w-8 h-8 text-xs",
   md: "w-11 h-11 text-sm",
   lg: "w-14 h-14 text-base",
+  xl: "w-24 h-24 text-2xl",
 };
 
 export default function ContactAvatar({
