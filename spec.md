@@ -1,49 +1,50 @@
 # WhatsApp Clone UI
 
 ## Current State
-
-A mobile-first WhatsApp-style UI with 5 screens:
-- **ChatListScreen**: Shows seed conversations, opens individual chat view. Search bar is read-only (no filter).
-- **ChatViewScreen**: Messages from backend or seed data. Send message works via backend. Voice/video call buttons are non-functional.
-- **CallsScreen**: Static recent calls list. "New Call" and call-back buttons do nothing.
-- **StatusScreen**: Static list of status updates. Status items are not viewable/expandable.
-- **SettingsScreen**: Settings menu items don't open sub-panels. No dark mode toggle. Profile name is static.
-
-All screens exist but interactivity is minimal.
+- Stage 1 & 2 already deployed. Core screens exist: ChatListScreen, ChatViewScreen, StatusScreen, CallsScreen, SettingsScreen.
+- Chat list with search, seed data, navigation, unread badges.
+- Chat view with message bubbles, send message, voice/video call overlay triggers.
+- Status viewer with progress bar, post text status.
+- Calls screen with call overlay (timer, mute/speaker/end).
+- Settings with all panels: account, privacy, notifications, appearance, chats, storage, linked devices, help.
+- Dark mode toggle (persists in localStorage).
+- Profile edit panel (name, bio).
+- Bottom navigation with 4 tabs.
+- WhatsApp color palette with OKLCH tokens.
 
 ## Requested Changes (Diff)
 
 ### Add
-1. **Live search/filter** on ChatListScreen — typing in the search input filters conversations by contact name in real-time.
-2. **Active Call Overlay** — tapping voice or video call buttons (in chat view or calls list) opens a full-screen call UI overlay with contact name, call timer, mute/speaker/end-call buttons. Tapping end-call dismisses it.
-3. **Status Viewer** — tapping a status item opens a full-screen story-style viewer with progress bar at top, auto-advance or swipe-dismiss. Shows mock "photo" (gradient) and time label.
-4. **My Status Post** — tapping "Tap to add status update" opens a simple text input dialog to type a status. After submitting, it appears at top of Recent Updates.
-5. **Dark Mode Toggle** in Appearance settings — toggling adds/removes `.dark` class on `<html>`. State persists in localStorage.
-6. **Settings Sub-panels** — Account, Privacy, Notifications, Chats, and Linked Devices open slide-in panels with relevant toggle/option rows (UI only, no backend).
-7. **New Call dialog** — tapping "New Call" on CallsScreen opens a contact picker dialog (from seed contacts) with call buttons.
-8. **Profile edit** — tapping the profile row in Settings opens an edit panel for name and status text (localStorage persisted).
+- **Emoji picker panel** in ChatViewScreen: clicking the Smile icon opens a bottom sheet with emoji grid (common emojis), clicking an emoji appends it to the input.
+- **Message reactions**: long-press (or hold) on any message bubble shows a reaction bar with 6 emoji reactions (❤️ 👍 😂 😮 😢 🙏). Tapping a reaction shows a small badge under the bubble.
+- **Reply to message**: tap a message to show reply options, or swipe right on a message to quote-reply. Shows a quoted preview above the message input bar.
+- **Voice message UI**: holding the mic button shows a recording indicator with a waveform animation and elapsed timer. Releasing sends the voice note as a bubble with waveform + duration.
+- **Message context menu** (long press): shows Delete, Copy, Forward, Reply actions in a bottom sheet.
+- **Message search inside chat**: a search icon in the ChatViewScreen header opens a search bar that highlights matching messages.
+- **Group Chat screen**: tapping "Team Design Sprint" (conversation id 2) renders a group-aware chat with member avatars in header, "Group Info" accessible via header tap.
+- **Media message**: tapping the paperclip opens an attachment sheet with Image, Video, Document options. Tapping Image lets user pick (or shows a placeholder image thumbnail in the bubble).
+- **Typing indicator**: shows animated 3-dot typing indicator bubble below messages (simulated after user sends a message, disappears after 2 seconds).
+- **Seen/delivered ticks**: sent messages show a single gray tick, then double gray tick after 1s, then double green tick after 2s (simulated).
+- **Message timestamps**: messages grouped by date with a date separator pill (e.g. "TODAY", "YESTERDAY").
+- **Chat wallpaper picker** in Settings > Chats > Chat background: shows 4 preset wallpaper options that update the chat background.
+- **New Group screen**: tapping the FAB in chat list shows options including "New Group" which opens a new group creation flow (contact list with checkboxes, then group name input).
 
 ### Modify
-- ChatListScreen search input: make it active (controlled, filters list in real-time).
-- CallsScreen call buttons: wire to call overlay.
-- ChatViewScreen call/video buttons: wire to call overlay.
-- SettingsScreen Appearance row: wire to dark mode toggle.
-- StatusScreen items: wire to status viewer.
-- StatusScreen "My Status" button: wire to post dialog.
+- ChatViewScreen: add emoji picker, reactions, reply preview, voice message recording UI, typing indicator, seen ticks, message context menu, media attach sheet, in-chat search.
+- ChatListScreen FAB: opens a bottom sheet with "New Chat" and "New Group" options.
+- App.tsx: handle group info panel state, new group flow, wallpaper preference.
+- useAppState: add wallpaper state, reply state, reactions state.
 
 ### Remove
 - Nothing removed.
 
 ## Implementation Plan
-
-1. Create `useAppState.ts` hook for global UI state: activeCall, statusViewerIndex, darkMode, profileName, profileBio.
-2. Create `CallOverlay.tsx` — full-screen active call UI with timer, mute, speaker, end-call.
-3. Create `StatusViewer.tsx` — full-screen status story viewer with gradient "photo", progress bar, contact name, time.
-4. Create `StatusPostDialog.tsx` — simple dialog for posting text status.
-5. Create `SettingsPanel.tsx` — generic slide-in panel with sub-settings rows.
-6. Update `App.tsx` to include global overlays (CallOverlay, StatusViewer) and pass state/handlers down.
-7. Update `ChatListScreen.tsx` — make search input controlled and filter seed/real conversations.
-8. Update `CallsScreen.tsx` — wire call buttons to open call overlay.
-9. Update `ChatViewScreen.tsx` — wire voice/video buttons to open call overlay.
-10. Update `StatusScreen.tsx` — wire status items to viewer, "My Status" to post dialog.
-11. Update `SettingsScreen.tsx` — wire Appearance to dark mode, open sub-panels for settings items, profile edit.
+1. Add emoji picker panel component (EmojiPicker.tsx) with 80 common emojis in a scrollable grid.
+2. Update ChatViewScreen with: emoji picker toggle, reply-to preview bar, voice message recording state, typing indicator bubble, seen ticks on sent messages, in-chat search bar, message context menu bottom sheet, reactions overlay.
+3. Add AttachmentSheet component (image/video/document options).
+4. Add date separator component for message grouping.
+5. Update ChatListScreen FAB to open BottomSheet with New Chat / New Group options.
+6. Add NewGroupScreen page (contact picker + group name).
+7. Add wallpaper picker in SettingsScreen > Chats panel.
+8. Update useAppState with wallpaper, replyTo, and reactions state.
+9. Keep all changes self-contained in frontend only (no backend changes needed).

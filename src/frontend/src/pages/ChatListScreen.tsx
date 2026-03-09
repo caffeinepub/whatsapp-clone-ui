@@ -1,12 +1,24 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, MoreVertical, Pencil, Search } from "lucide-react";
+import { Camera, MoreVertical, Pencil, Search, Users, X } from "lucide-react";
 import { useState } from "react";
 import type { Contact, Conversation } from "../backend.d";
 import ContactAvatar from "../components/ContactAvatar";
 import { useContacts, useConversations } from "../hooks/useQueries";
 
+interface ExtraConversation {
+  id: bigint;
+  contactName: string;
+  initials: string;
+  lastMsg: string;
+  time: string;
+  unread: number;
+  isGroup: boolean;
+}
+
 interface ChatListScreenProps {
   onOpenChat: (conversationId: bigint) => void;
+  onNewGroup?: () => void;
+  extraConversations?: ExtraConversation[];
 }
 
 function formatTimestamp(ts?: bigint): string {
@@ -146,8 +158,13 @@ const SEED_CONVERSATIONS = [
   },
 ];
 
-export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
+export default function ChatListScreen({
+  onOpenChat,
+  onNewGroup,
+  extraConversations = [],
+}: ChatListScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [fabSheetOpen, setFabSheetOpen] = useState(false);
   const { data: conversations, isLoading: convsLoading } = useConversations();
   const { data: contacts, isLoading: contactsLoading } = useContacts();
 
@@ -159,7 +176,19 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
 
   const hasRealData = !isLoading && (conversations?.length ?? 0) > 0;
 
-  const filteredSeedConversations = SEED_CONVERSATIONS.filter((item) =>
+  const allSeedConversations = [
+    ...extraConversations.map((e) => ({
+      id: e.id,
+      contactName: e.contactName,
+      initials: e.initials,
+      lastMsg: e.lastMsg,
+      time: e.time,
+      unread: e.unread,
+    })),
+    ...SEED_CONVERSATIONS,
+  ];
+
+  const filteredSeedConversations = allSeedConversations.filter((item) =>
     item.contactName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -312,11 +341,90 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
       <button
         type="button"
         data-ocid="chatlist.new_chat.button"
-        className="absolute bottom-20 right-4 w-14 h-14 bg-wa-green rounded-full flex items-center justify-center shadow-lg hover:brightness-105 active:brightness-95 transition-all"
+        onClick={() => setFabSheetOpen(true)}
+        className="absolute bottom-20 right-4 w-14 h-14 bg-wa-green rounded-full flex items-center justify-center shadow-lg hover:brightness-105 active:brightness-95 transition-all z-10"
         aria-label="New chat"
       >
         <Pencil className="w-6 h-6 text-white" />
       </button>
+
+      {/* FAB bottom sheet */}
+      {fabSheetOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 z-20 bg-black/40"
+            onClick={() => setFabSheetOpen(false)}
+            onKeyDown={(e) => e.key === "Escape" && setFabSheetOpen(false)}
+            role="button"
+            tabIndex={-1}
+            aria-label="Close menu"
+          />
+          <div
+            data-ocid="chatlist.fab.sheet"
+            className="absolute bottom-0 left-0 right-0 z-30 bg-card rounded-t-2xl shadow-2xl animate-slide-up"
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+
+            <div className="px-2 py-2">
+              <button
+                type="button"
+                data-ocid="chatlist.new_chat.button"
+                onClick={() => setFabSheetOpen(false)}
+                className="flex items-center gap-4 w-full px-4 py-3.5 hover:bg-muted/60 rounded-xl transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-wa-green flex items-center justify-center">
+                  <Pencil className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[15px] text-foreground font-display">
+                    New Chat
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Start a conversation
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                data-ocid="group.new.sheet"
+                onClick={() => {
+                  setFabSheetOpen(false);
+                  onNewGroup?.();
+                }}
+                className="flex items-center gap-4 w-full px-4 py-3.5 hover:bg-muted/60 rounded-xl transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-[15px] text-foreground font-display">
+                    New Group
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Create a group chat
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            <div className="px-4 py-2 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setFabSheetOpen(false)}
+                className="flex items-center gap-3 w-full px-1 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-5 h-5" />
+                <span className="text-[15px] font-medium">Cancel</span>
+              </button>
+            </div>
+            <div style={{ height: "env(safe-area-inset-bottom, 8px)" }} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

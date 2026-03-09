@@ -113,12 +113,22 @@ export default {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        "waveform": {
+          "0%, 100%": { scaleY: "0.4" },
+          "50%": { scaleY: "1" },
+        },
+        "recording-pulse": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.3" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "slide-up": "slide-up 0.25s ease-out",
         "fade-in": "fade-in 0.2s ease-out",
+        "waveform": "waveform 1s ease-in-out infinite",
+        "recording-pulse": "recording-pulse 1.2s ease-in-out infinite",
       },
     },
   },

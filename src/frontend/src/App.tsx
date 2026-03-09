@@ -7,10 +7,23 @@ import { useAppState } from "./hooks/useAppState";
 import CallsScreen from "./pages/CallsScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
+import NewGroupScreen from "./pages/NewGroupScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import StatusScreen from "./pages/StatusScreen";
 
 export type TabName = "chats" | "status" | "calls" | "settings";
+type AppView = "main" | "new-group";
+
+// Extra conversations from new groups
+const SEED_EXTRA_CONVS: {
+  id: bigint;
+  contactName: string;
+  initials: string;
+  lastMsg: string;
+  time: string;
+  unread: number;
+  isGroup: boolean;
+}[] = [];
 
 const RECENT_STATUS_LIST = [
   {
@@ -44,6 +57,10 @@ export default function App() {
   const [openConversationId, setOpenConversationId] = useState<bigint | null>(
     null,
   );
+  const [appView, setAppView] = useState<AppView>("main");
+  const [seedConversations, setSeedConversations] = useState<
+    typeof SEED_EXTRA_CONVS
+  >([]);
 
   const appState = useAppState();
 
@@ -55,23 +72,48 @@ export default function App() {
     setOpenConversationId(null);
   };
 
+  const handleGroupCreated = (name: string, _members: string[]) => {
+    const newConv = {
+      id: BigInt(Date.now()),
+      contactName: name,
+      initials: name.slice(0, 2).toUpperCase(),
+      lastMsg: "Group created",
+      time: "Now",
+      unread: 0,
+      isGroup: true,
+    };
+    setSeedConversations((prev) => [newConv, ...prev]);
+    setAppView("main");
+    setActiveTab("chats");
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50">
       {/* Phone frame on desktop */}
       <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
         {/* Main content area */}
         <div className="flex-1 overflow-hidden relative">
-          {/* Chat view overlays everything when open */}
-          {openConversationId !== null ? (
+          {/* New Group Screen overlays everything */}
+          {appView === "new-group" ? (
+            <NewGroupScreen
+              onBack={() => setAppView("main")}
+              onGroupCreated={handleGroupCreated}
+            />
+          ) : openConversationId !== null ? (
             <ChatViewScreen
               conversationId={openConversationId}
               onBack={handleCloseChat}
               onOpenCall={appState.openCall}
+              wallpaper={appState.wallpaper}
             />
           ) : (
             <>
               {activeTab === "chats" && (
-                <ChatListScreen onOpenChat={handleOpenChat} />
+                <ChatListScreen
+                  onOpenChat={handleOpenChat}
+                  onNewGroup={() => setAppView("new-group")}
+                  extraConversations={seedConversations}
+                />
               )}
               {activeTab === "status" && (
                 <StatusScreen
@@ -89,6 +131,8 @@ export default function App() {
                   toggleDarkMode={appState.toggleDarkMode}
                   userProfile={appState.userProfile}
                   onUpdateProfile={appState.updateProfile}
+                  wallpaper={appState.wallpaper}
+                  onWallpaperChange={appState.setWallpaper}
                 />
               )}
             </>
@@ -109,8 +153,8 @@ export default function App() {
           )}
         </div>
 
-        {/* Bottom nav — hidden when in chat view */}
-        {openConversationId === null && (
+        {/* Bottom nav — hidden when in chat view or new group */}
+        {openConversationId === null && appView === "main" && (
           <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
         )}
       </div>

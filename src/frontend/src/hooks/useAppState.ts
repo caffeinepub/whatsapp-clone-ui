@@ -18,6 +18,8 @@ export interface UserStatus {
   text: string;
 }
 
+export type WallpaperType = "default" | "light" | "dark" | "green";
+
 interface AppState {
   darkMode: boolean;
   activeCall: ActiveCall | null;
@@ -25,6 +27,7 @@ interface AppState {
   statusViewerIndex: number;
   userProfile: UserProfile;
   userStatuses: UserStatus[];
+  wallpaper: WallpaperType;
   openCall: (contact: ActiveCall) => void;
   endCall: () => void;
   openStatusViewer: (index: number) => void;
@@ -32,6 +35,7 @@ interface AppState {
   toggleDarkMode: () => void;
   updateProfile: (name: string, bio: string) => void;
   addUserStatus: (text: string) => void;
+  setWallpaper: (w: WallpaperType) => void;
 }
 
 const DEFAULT_PROFILE: UserProfile = {
@@ -63,6 +67,10 @@ export function useAppState(): AppState {
   );
 
   const [userStatuses, setUserStatuses] = useState<UserStatus[]>([]);
+
+  const [wallpaper, setWallpaperState] = useState<WallpaperType>(() =>
+    loadFromStorage<WallpaperType>("wa-wallpaper", "default"),
+  );
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -113,6 +121,11 @@ export function useAppState(): AppState {
     ]);
   }, []);
 
+  const setWallpaper = useCallback((w: WallpaperType) => {
+    setWallpaperState(w);
+    localStorage.setItem("wa-wallpaper", JSON.stringify(w));
+  }, []);
+
   return {
     darkMode,
     activeCall,
@@ -120,6 +133,7 @@ export function useAppState(): AppState {
     statusViewerIndex,
     userProfile,
     userStatuses,
+    wallpaper,
     openCall,
     endCall,
     openStatusViewer,
@@ -127,5 +141,6 @@ export function useAppState(): AppState {
     toggleDarkMode,
     updateProfile,
     addUserStatus,
+    setWallpaper,
   };
 }

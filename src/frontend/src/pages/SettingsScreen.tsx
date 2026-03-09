@@ -23,13 +23,15 @@ import { useState } from "react";
 import ContactAvatar from "../components/ContactAvatar";
 import ProfileEditPanel from "../components/ProfileEditPanel";
 import SettingsPanel from "../components/SettingsPanel";
-import type { UserProfile } from "../hooks/useAppState";
+import type { UserProfile, WallpaperType } from "../hooks/useAppState";
 
 interface SettingsScreenProps {
   darkMode: boolean;
   toggleDarkMode: () => void;
   userProfile: UserProfile;
   onUpdateProfile: (name: string, bio: string) => void;
+  wallpaper: WallpaperType;
+  onWallpaperChange: (w: WallpaperType) => void;
 }
 
 function SettingRow({
@@ -134,14 +136,49 @@ type PanelId =
   | "help"
   | null;
 
+const WALLPAPER_OPTIONS: {
+  id: WallpaperType;
+  label: string;
+  bg: string;
+  border: string;
+}[] = [
+  {
+    id: "default",
+    label: "Default",
+    bg: "bg-[#ECE5DD]",
+    border: "border-wa-green",
+  },
+  {
+    id: "light",
+    label: "Solid Light",
+    bg: "bg-[#F0F4F8]",
+    border: "border-blue-400",
+  },
+  {
+    id: "dark",
+    label: "Dark Pattern",
+    bg: "bg-[#1A2335]",
+    border: "border-slate-500",
+  },
+  {
+    id: "green",
+    label: "Green Tint",
+    bg: "bg-[#E8F5E9]",
+    border: "border-emerald-500",
+  },
+];
+
 export default function SettingsScreen({
   darkMode,
   toggleDarkMode,
   userProfile,
   onUpdateProfile,
+  wallpaper,
+  onWallpaperChange,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [wallpaperOpen, setWallpaperOpen] = useState(false);
 
   // Account panel state
   const [onlineStatus, setOnlineStatus] = useState(true);
@@ -414,9 +451,55 @@ export default function SettingsScreen({
               aria-label="Toggle dark mode"
             />
           </SettingRow>
-          <SettingRow label="Chat background">
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-          </SettingRow>
+          <button
+            type="button"
+            onClick={() => setWallpaperOpen((p) => !p)}
+            className="flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <p className="font-medium text-[15px] text-foreground">
+              Chat background
+            </p>
+            <ChevronRight
+              className={`w-4 h-4 text-muted-foreground transition-transform ${wallpaperOpen ? "rotate-90" : ""}`}
+            />
+          </button>
+
+          {/* Wallpaper picker inline */}
+          {wallpaperOpen && (
+            <div
+              data-ocid="settings.wallpaper.panel"
+              className="px-4 py-3 border-t border-border bg-secondary/20 animate-fade-in"
+            >
+              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Choose Background
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {WALLPAPER_OPTIONS.map((opt, idx) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-ocid={`settings.wallpaper.item.${idx + 1}`}
+                    onClick={() => onWallpaperChange(opt.id)}
+                    className="flex flex-col items-center gap-1.5 group"
+                    aria-pressed={wallpaper === opt.id}
+                  >
+                    <div
+                      className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${
+                        wallpaper === opt.id
+                          ? `${opt.border} ring-2 ring-offset-1 ring-wa-green`
+                          : "border-border"
+                      }`}
+                    />
+                    <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
+                      {opt.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <Separator className="ml-4" />
           <SettingRow label="Font size" separator={false}>
             <Select value={fontSize} onValueChange={setFontSize}>
               <SelectTrigger
