@@ -25,7 +25,10 @@ export default function SettingsPanel({
       aria-hidden={!open}
     >
       {/* Panel header */}
-      <header className="bg-wa-header px-2 pt-12 pb-2 flex items-center gap-2 flex-shrink-0">
+      <header
+        className="bg-wa-header px-2 pb-2 flex items-center gap-2 flex-shrink-0"
+        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+      >
         <button
           type="button"
           data-ocid="settings.panel.close_button"

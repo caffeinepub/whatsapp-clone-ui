@@ -814,7 +814,10 @@ export default function ChatViewScreen({
     <div className="flex flex-col h-full animate-slide-up">
       {/* Chat header */}
       <header className="bg-wa-header flex flex-col flex-shrink-0">
-        <div className="flex items-center gap-2 px-2 pt-12 pb-2">
+        <div
+          className="flex items-center gap-2 px-2 pb-2"
+          style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+        >
           <button
             type="button"
             data-ocid="chat.back.button"

@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -201,10 +211,18 @@ export default function SettingsScreen({
   // Appearance state
   const [appearFontSize, setAppearFontSize] = useState("medium");
 
+  // Alert dialog state
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [clearCacheOpen, setClearCacheOpen] = useState(false);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="bg-wa-header px-4 pt-12 pb-3 flex-shrink-0">
+      <header
+        className="bg-wa-header px-4 pb-3 flex-shrink-0"
+        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+      >
         <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
           Settings
         </h1>
@@ -271,6 +289,18 @@ export default function SettingsScreen({
           ))}
         </div>
 
+        {/* Logout button */}
+        <div className="bg-card mt-3">
+          <button
+            type="button"
+            data-ocid="settings.logout.button"
+            onClick={() => setLogoutOpen(true)}
+            className="flex items-center justify-center w-full px-4 py-3.5 text-destructive hover:bg-destructive/5 transition-colors"
+          >
+            <p className="font-semibold text-[15px]">Log out</p>
+          </button>
+        </div>
+
         {/* Footer */}
         <div className="py-6 flex flex-col items-center gap-1">
           <p className="text-[12px] text-muted-foreground">
@@ -304,23 +334,36 @@ export default function SettingsScreen({
         <div className="bg-card mt-3 mx-0">
           <SettingRow label="Online status">
             <Switch
-              data-ocid="settings.account.switch"
               checked={onlineStatus}
               onCheckedChange={setOnlineStatus}
-              aria-label="Toggle online status"
+              data-ocid="settings.account.online.switch"
             />
           </SettingRow>
           <SettingRow label="Two-step verification">
             <Switch
-              data-ocid="settings.security.switch"
               checked={twoStep}
               onCheckedChange={setTwoStep}
-              aria-label="Toggle two-step verification"
+              data-ocid="settings.account.twostep.switch"
             />
           </SettingRow>
-          <SettingRow label="Change Number" separator={false}>
+          <SettingRow label="Change Number">
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </SettingRow>
+          <SettingRow label="Request account info">
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </SettingRow>
+          <SettingRow label="Add account" separator={false}>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </SettingRow>
+          <Separator />
+          <button
+            type="button"
+            data-ocid="settings.account.delete.button"
+            onClick={() => setDeleteAccountOpen(true)}
+            className="flex items-center w-full px-4 py-3.5 text-destructive hover:bg-destructive/5 transition-colors"
+          >
+            <p className="font-medium text-[15px]">Delete my account</p>
+          </button>
         </div>
       </SettingsPanel>
 
@@ -425,14 +468,55 @@ export default function SettingsScreen({
         onClose={() => setOpenPanel(null)}
       >
         <div className="bg-card mt-3">
-          <div className="px-4 py-6 flex flex-col items-center gap-3 text-center">
-            <HardDrive className="w-12 h-12 text-muted-foreground/40" />
-            <p className="font-semibold text-foreground">Storage Manager</p>
-            <p className="text-[13px] text-muted-foreground">
-              Storage and data management tools are not available in this
-              version.
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Auto-download — Wi-Fi
             </p>
           </div>
+          <SettingRow label="Photos">
+            <Switch
+              defaultChecked
+              data-ocid="settings.storage.photos_wifi.switch"
+            />
+          </SettingRow>
+          <SettingRow label="Videos">
+            <Switch data-ocid="settings.storage.videos_wifi.switch" />
+          </SettingRow>
+          <SettingRow label="Documents" separator={false}>
+            <Switch
+              defaultChecked
+              data-ocid="settings.storage.docs_wifi.switch"
+            />
+          </SettingRow>
+        </div>
+        <div className="bg-card mt-3">
+          <div className="px-4 py-3 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Auto-download — Mobile Data
+            </p>
+          </div>
+          <SettingRow label="Photos">
+            <Switch data-ocid="settings.storage.photos_cell.switch" />
+          </SettingRow>
+          <SettingRow label="Videos">
+            <Switch data-ocid="settings.storage.videos_cell.switch" />
+          </SettingRow>
+          <SettingRow label="Documents" separator={false}>
+            <Switch data-ocid="settings.storage.docs_cell.switch" />
+          </SettingRow>
+        </div>
+        <div className="bg-card mt-3">
+          <button
+            type="button"
+            data-ocid="settings.storage.clear.button"
+            onClick={() => setClearCacheOpen(true)}
+            className="flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <p className="font-medium text-[15px] text-foreground">
+              Clear chat cache
+            </p>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
       </SettingsPanel>
 
@@ -580,6 +664,15 @@ export default function SettingsScreen({
             </p>
           </div>
         </div>
+        <div className="px-4 pb-4">
+          <button
+            type="button"
+            data-ocid="settings.linked.link.button"
+            className="w-full border-2 border-wa-green text-wa-green rounded-xl py-3 font-semibold text-[15px] hover:bg-wa-green/5 transition-colors"
+          >
+            Link a Device
+          </button>
+        </div>
       </SettingsPanel>
 
       {/* Help panel */}
@@ -589,17 +682,95 @@ export default function SettingsScreen({
         onClose={() => setOpenPanel(null)}
       >
         <div className="bg-card mt-3">
-          <SettingRow label="Help Centre">
+          <SettingRow label="FAQ">
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </SettingRow>
           <SettingRow label="Contact us">
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </SettingRow>
-          <SettingRow label="Privacy policy" separator={false}>
+          <SettingRow label="Privacy policy">
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </SettingRow>
+          <SettingRow label="Terms of service">
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </SettingRow>
+          <SettingRow label="App info" separator={false}>
+            <span className="text-[13px] text-muted-foreground">v3.0.0</span>
           </SettingRow>
         </div>
       </SettingsPanel>
+
+      {/* Delete Account Confirmation */}
+      <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
+        <AlertDialogContent data-ocid="settings.delete_account.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your account and all your messages.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="settings.delete_account.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="settings.delete_account.confirm_button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => setDeleteAccountOpen(false)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Logout Confirmation */}
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent data-ocid="settings.logout.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to verify your phone number again to log back in.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="settings.logout.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="settings.logout.confirm_button"
+              onClick={() => setLogoutOpen(false)}
+            >
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Clear Cache Confirmation */}
+      <AlertDialog open={clearCacheOpen} onOpenChange={setClearCacheOpen}>
+        <AlertDialogContent data-ocid="settings.clear_cache.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear chat cache?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will free up storage space. Your messages will not be
+              deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="settings.clear_cache.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="settings.clear_cache.confirm_button"
+              onClick={() => setClearCacheOpen(false)}
+            >
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

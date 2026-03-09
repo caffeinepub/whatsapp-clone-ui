@@ -195,7 +195,10 @@ export default function ChatListScreen({
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="bg-wa-header px-4 pt-12 pb-3 flex-shrink-0">
+      <header
+        className="bg-wa-header px-4 pb-3 flex-shrink-0"
+        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+      >
         <div className="flex items-center justify-between">
           <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
             WhatsApp

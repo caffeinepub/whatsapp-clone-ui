@@ -52,7 +52,10 @@ export default function NewGroupScreen({
     return (
       <div className="flex flex-col h-full animate-slide-up">
         {/* Header */}
-        <header className="bg-wa-header px-2 pt-12 pb-2 flex items-center gap-2 flex-shrink-0">
+        <header
+          className="bg-wa-header px-2 pb-2 flex items-center gap-2 flex-shrink-0"
+          style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+        >
           <button
             type="button"
             onClick={() => setStep("select-members")}
@@ -135,7 +138,10 @@ export default function NewGroupScreen({
   return (
     <div className="flex flex-col h-full animate-slide-up">
       {/* Header */}
-      <header className="bg-wa-header px-2 pt-12 pb-2 flex items-center gap-2 flex-shrink-0">
+      <header
+        className="bg-wa-header px-2 pb-2 flex items-center gap-2 flex-shrink-0"
+        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+      >
         <button
           type="button"
           onClick={onBack}
