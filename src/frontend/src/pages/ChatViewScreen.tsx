@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Message } from "../backend.d";
 import ContactAvatar from "../components/ContactAvatar";
+import type { ActiveCall } from "../hooks/useAppState";
 import {
   useContacts,
   useConversations,
@@ -24,6 +25,7 @@ import {
 interface ChatViewScreenProps {
   conversationId: bigint;
   onBack: () => void;
+  onOpenCall: (contact: ActiveCall) => void;
 }
 
 function formatMessageTime(ts: bigint): string {
@@ -163,9 +165,19 @@ function SeedBubble({
   );
 }
 
+const SEED_COLOR_MAP: Record<string, number> = {
+  "1": 0,
+  "2": 1,
+  "3": 2,
+  "4": 4,
+  "5": 3,
+  "6": 5,
+};
+
 export default function ChatViewScreen({
   conversationId,
   onBack,
+  onOpenCall,
 }: ChatViewScreenProps) {
   const [inputText, setInputText] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -214,11 +226,12 @@ export default function ChatViewScreen({
     }
   };
 
+  const seedKey = conversationId.toString();
   const contactName = contact?.name ?? "Chat";
   const contactInitials = contact?.avatarInitials ?? "??";
+  const colorIndex = SEED_COLOR_MAP[seedKey] ?? 0;
 
   const hasRealMessages = !messagesLoading && (messages?.length ?? 0) > 0;
-  const seedKey = conversationId.toString();
   const seedMessages =
     SEED_CHAT_MESSAGES[seedKey] ?? SEED_CHAT_MESSAGES.default;
 
@@ -242,7 +255,11 @@ export default function ChatViewScreen({
           className="flex items-center gap-2 flex-1 min-w-0 text-left"
           aria-label={`View contact ${contactName}`}
         >
-          <ContactAvatar initials={contactInitials} size="sm" />
+          <ContactAvatar
+            initials={contactInitials}
+            size="sm"
+            colorIndex={colorIndex}
+          />
           <div className="min-w-0">
             <p className="text-wa-header-fg font-semibold text-[15px] truncate font-display">
               {contactName}
@@ -255,6 +272,14 @@ export default function ChatViewScreen({
           <button
             type="button"
             data-ocid="chat.video.button"
+            onClick={() =>
+              onOpenCall({
+                name: contactName,
+                initials: contactInitials,
+                kind: "video",
+                colorIndex,
+              })
+            }
             className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg rounded-full hover:bg-white/10 transition-colors"
             aria-label="Video call"
           >
@@ -263,6 +288,14 @@ export default function ChatViewScreen({
           <button
             type="button"
             data-ocid="chat.call.button"
+            onClick={() =>
+              onOpenCall({
+                name: contactName,
+                initials: contactInitials,
+                kind: "voice",
+                colorIndex,
+              })
+            }
             className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg rounded-full hover:bg-white/10 transition-colors"
             aria-label="Voice call"
           >

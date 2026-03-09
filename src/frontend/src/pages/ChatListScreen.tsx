@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Camera, MoreVertical, Pencil, Search } from "lucide-react";
+import { useState } from "react";
 import type { Contact, Conversation } from "../backend.d";
 import ContactAvatar from "../components/ContactAvatar";
 import { useContacts, useConversations } from "../hooks/useQueries";
@@ -146,6 +147,7 @@ const SEED_CONVERSATIONS = [
 ];
 
 export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: conversations, isLoading: convsLoading } = useConversations();
   const { data: contacts, isLoading: contactsLoading } = useContacts();
 
@@ -156,6 +158,10 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
   );
 
   const hasRealData = !isLoading && (conversations?.length ?? 0) > 0;
+
+  const filteredSeedConversations = SEED_CONVERSATIONS.filter((item) =>
+    item.contactName.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
 
   return (
     <div className="flex flex-col h-full">
@@ -201,8 +207,9 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
           <input
             data-ocid="chatlist.search_input"
             placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-transparent flex-1 text-[13px] text-wa-header-fg placeholder:text-wa-header-fg/50 outline-none"
-            readOnly
           />
         </div>
       </div>
@@ -222,19 +229,28 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
 
         {!isLoading &&
           hasRealData &&
-          (conversations ?? []).map((conv, i) => (
-            <ChatRow
-              key={conv.id.toString()}
-              conversation={conv}
-              contact={contactMap.get(conv.contactId.toString())}
-              index={i + 1}
-              onClick={() => onOpenChat(conv.id)}
-            />
-          ))}
+          (conversations ?? [])
+            .filter((conv) => {
+              if (!searchQuery) return true;
+              const contact = contactMap.get(conv.contactId.toString());
+              return contact?.name
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase());
+            })
+            .map((conv, i) => (
+              <ChatRow
+                key={conv.id.toString()}
+                conversation={conv}
+                contact={contactMap.get(conv.contactId.toString())}
+                index={i + 1}
+                onClick={() => onOpenChat(conv.id)}
+              />
+            ))}
 
         {!isLoading &&
           !hasRealData &&
-          SEED_CONVERSATIONS.map((item, i) => (
+          filteredSeedConversations.length > 0 &&
+          filteredSeedConversations.map((item, i) => (
             <button
               key={item.id.toString()}
               type="button"
@@ -271,6 +287,25 @@ export default function ChatListScreen({ onOpenChat }: ChatListScreenProps) {
               </div>
             </button>
           ))}
+
+        {/* No results empty state */}
+        {!isLoading &&
+          searchQuery &&
+          filteredSeedConversations.length === 0 &&
+          !hasRealData && (
+            <div
+              data-ocid="chatlist.empty_state"
+              className="flex flex-col items-center justify-center py-16 px-8 gap-3"
+            >
+              <Search className="w-12 h-12 text-muted-foreground/40" />
+              <p className="text-[15px] font-semibold text-foreground text-center">
+                No results for "{searchQuery}"
+              </p>
+              <p className="text-[13px] text-muted-foreground text-center">
+                Try searching for a different name
+              </p>
+            </div>
+          )}
       </main>
 
       {/* FAB */}

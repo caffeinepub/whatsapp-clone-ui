@@ -1,12 +1,19 @@
 import { Phone, Search, Video } from "lucide-react";
+import { useState } from "react";
 import ContactAvatar from "../components/ContactAvatar";
+import NewCallDialog from "../components/NewCallDialog";
+import type { ActiveCall } from "../hooks/useAppState";
+
+interface CallsScreenProps {
+  onOpenCall: (contact: ActiveCall) => void;
+}
 
 const RECENT_CALLS = [
   {
     name: "Emma Rodriguez",
     initials: "ER",
     type: "incoming",
-    kind: "voice",
+    kind: "voice" as const,
     time: "Today, 10:30 AM",
     missed: false,
     colorIndex: 0,
@@ -15,7 +22,7 @@ const RECENT_CALLS = [
     name: "Marcus Chen",
     initials: "MC",
     type: "outgoing",
-    kind: "video",
+    kind: "video" as const,
     time: "Today, 9:15 AM",
     missed: false,
     colorIndex: 1,
@@ -24,7 +31,7 @@ const RECENT_CALLS = [
     name: "Priya Sharma",
     initials: "PS",
     type: "missed",
-    kind: "voice",
+    kind: "voice" as const,
     time: "Yesterday, 8:45 PM",
     missed: true,
     colorIndex: 4,
@@ -33,7 +40,7 @@ const RECENT_CALLS = [
     name: "Jordan Williams",
     initials: "JW",
     type: "incoming",
-    kind: "voice",
+    kind: "voice" as const,
     time: "Yesterday, 3:20 PM",
     missed: false,
     colorIndex: 3,
@@ -42,14 +49,16 @@ const RECENT_CALLS = [
     name: "Sarah & Mike",
     initials: "SM",
     type: "outgoing",
-    kind: "video",
+    kind: "video" as const,
     time: "Mon, 6:00 PM",
     missed: false,
     colorIndex: 5,
   },
 ];
 
-export default function CallsScreen() {
+export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
+  const [newCallOpen, setNewCallOpen] = useState(false);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -77,6 +86,7 @@ export default function CallsScreen() {
           <button
             type="button"
             data-ocid="calls.new_call.button"
+            onClick={() => setNewCallOpen(true)}
             className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-xl p-2 -mx-2 transition-colors text-left"
           >
             <div className="w-11 h-11 bg-wa-green/15 rounded-full flex items-center justify-center">
@@ -95,10 +105,19 @@ export default function CallsScreen() {
           </p>
           <div className="space-y-1">
             {RECENT_CALLS.map((call, i) => (
-              <div
+              <button
+                type="button"
                 key={`${call.name}-${i}`}
                 data-ocid={`calls.item.${i + 1}`}
-                className="flex items-center gap-3 py-2"
+                onClick={() =>
+                  onOpenCall({
+                    name: call.name,
+                    initials: call.initials,
+                    kind: call.kind,
+                    colorIndex: call.colorIndex,
+                  })
+                }
+                className="flex items-center gap-3 py-2 w-full hover:bg-muted/40 rounded-xl px-2 -mx-2 transition-colors text-left"
               >
                 <ContactAvatar
                   initials={call.initials}
@@ -130,6 +149,15 @@ export default function CallsScreen() {
                 <button
                   type="button"
                   data-ocid={`calls.call.button.${i + 1}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenCall({
+                      name: call.name,
+                      initials: call.initials,
+                      kind: call.kind,
+                      colorIndex: call.colorIndex,
+                    });
+                  }}
                   className="p-2 text-wa-green hover:bg-wa-green/10 rounded-full transition-colors"
                   aria-label={`Call ${call.name}`}
                 >
@@ -139,11 +167,17 @@ export default function CallsScreen() {
                     <Phone className="w-5 h-5" />
                   )}
                 </button>
-              </div>
+              </button>
             ))}
           </div>
         </div>
       </main>
+
+      <NewCallDialog
+        open={newCallOpen}
+        onClose={() => setNewCallOpen(false)}
+        onCall={onOpenCall}
+      />
     </div>
   );
 }

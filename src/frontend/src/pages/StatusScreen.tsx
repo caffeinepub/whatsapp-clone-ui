@@ -1,5 +1,14 @@
 import { Camera, Pencil } from "lucide-react";
+import { useState } from "react";
 import ContactAvatar from "../components/ContactAvatar";
+import StatusPostDialog from "../components/StatusPostDialog";
+import type { UserStatus } from "../hooks/useAppState";
+
+interface StatusScreenProps {
+  onOpenStatusViewer: (index: number) => void;
+  userStatuses: UserStatus[];
+  onAddStatus: (text: string) => void;
+}
 
 const RECENT_UPDATES = [
   {
@@ -32,7 +41,13 @@ const RECENT_UPDATES = [
   },
 ];
 
-export default function StatusScreen() {
+export default function StatusScreen({
+  onOpenStatusViewer,
+  userStatuses,
+  onAddStatus,
+}: StatusScreenProps) {
+  const [postDialogOpen, setPostDialogOpen] = useState(false);
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -45,6 +60,7 @@ export default function StatusScreen() {
             <button
               type="button"
               data-ocid="status.pencil.button"
+              onClick={() => setPostDialogOpen(true)}
               className="p-2 text-wa-header-fg/80 hover:text-wa-header-fg transition-colors rounded-full hover:bg-white/10"
               aria-label="Text status"
             >
@@ -71,6 +87,7 @@ export default function StatusScreen() {
           <button
             type="button"
             data-ocid="status.my_status.button"
+            onClick={() => setPostDialogOpen(true)}
             className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-xl p-2 -mx-2 transition-colors text-left"
           >
             <div className="relative">
@@ -85,11 +102,34 @@ export default function StatusScreen() {
               <p className="font-semibold text-[15px] text-foreground font-display">
                 My Status
               </p>
-              <p className="text-[13px] text-muted-foreground">
-                Tap to add status update
-              </p>
+              {userStatuses.length > 0 ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {userStatuses[0].text.slice(0, 40)}
+                  {userStatuses[0].text.length > 40 ? "…" : ""}
+                </p>
+              ) : (
+                <p className="text-[13px] text-muted-foreground">
+                  Tap to add status update
+                </p>
+              )}
             </div>
           </button>
+
+          {/* User's own posted statuses */}
+          {userStatuses.length > 0 && (
+            <div className="mt-2 space-y-1 pl-2">
+              {userStatuses.slice(0, 3).map((s) => (
+                <div
+                  key={`my-status-${s.time}`}
+                  className="text-[12px] text-muted-foreground flex items-center gap-2"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-wa-green flex-shrink-0" />
+                  <span className="truncate">{s.text}</span>
+                  <span className="flex-shrink-0 text-[11px]">· {s.time}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent Updates */}
@@ -103,6 +143,7 @@ export default function StatusScreen() {
                 type="button"
                 key={item.name}
                 data-ocid={`status.item.${i + 1}`}
+                onClick={() => onOpenStatusViewer(i)}
                 className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-xl p-2 -mx-2 transition-colors text-left"
               >
                 <div
@@ -127,6 +168,12 @@ export default function StatusScreen() {
           </div>
         </div>
       </main>
+
+      <StatusPostDialog
+        open={postDialogOpen}
+        onClose={() => setPostDialogOpen(false)}
+        onPost={onAddStatus}
+      />
     </div>
   );
 }
