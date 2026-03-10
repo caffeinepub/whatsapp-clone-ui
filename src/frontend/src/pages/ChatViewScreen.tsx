@@ -21,6 +21,7 @@ import {
   ArrowUp,
   Check,
   CheckCheck,
+  Clock,
   File,
   MapPin,
   Mic,
@@ -43,6 +44,7 @@ import EmojiPicker from "../components/EmojiPicker";
 import MessageContextMenu, {
   type ChatMessage,
 } from "../components/MessageContextMenu";
+import ScheduleMessageModal from "../components/ScheduleMessageModal";
 import type { ActiveCall, WallpaperType } from "../hooks/useAppState";
 import {
   useContacts,
@@ -502,8 +504,33 @@ export default function ChatViewScreen({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduledMsgs, setScheduledMsgs] = useState<
+    { id: number; text: string; dt: Date }[]
+  >([]);
+  const [showScheduledPanel, setShowScheduledPanel] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-send scheduled messages when their time arrives
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setScheduledMsgs((prev) => {
+        const toSend = prev.filter((m) => m.dt <= now);
+        if (toSend.length > 0) {
+          for (const m of toSend) {
+            toast.success(
+              `Scheduled message sent: "${m.text.slice(0, 30)}${m.text.length > 30 ? "..." : ""}"`,
+            );
+          }
+          return prev.filter((m) => m.dt > now);
+        }
+        return prev;
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
   const [showTyping, setShowTyping] = useState(false);
 
   // Hidden file input for gallery attachment
@@ -1226,6 +1253,68 @@ export default function ChatViewScreen({
         </div>
       )}
 
+      {/* Scheduled messages panel */}
+      {scheduledMsgs.length > 0 && (
+        <div
+          className="sticky bottom-0 z-10 bg-card border-t border-border"
+          data-ocid="schedule.panel"
+        >
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-4 py-2 hover:bg-muted/50 transition-colors"
+            onClick={() => setShowScheduledPanel((p) => !p)}
+            data-ocid="schedule.toggle"
+          >
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-wa-green" />
+              <span className="text-[12px] font-semibold text-wa-green">
+                {scheduledMsgs.length} scheduled
+              </span>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+              {showScheduledPanel ? "Hide ▲" : "Show ▼"}
+            </span>
+          </button>
+          {showScheduledPanel && (
+            <ul className="max-h-40 overflow-y-auto border-t border-border">
+              {scheduledMsgs.map((msg, idx) => (
+                <li
+                  key={msg.id}
+                  className="flex items-center gap-3 px-4 py-2 border-b border-border last:border-0"
+                  data-ocid={`schedule.item.${idx + 1}`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] text-foreground truncate">
+                      {msg.text}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {msg.dt.toLocaleString([], {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    data-ocid={`schedule.delete_button.${idx + 1}`}
+                    onClick={() =>
+                      setScheduledMsgs((prev) =>
+                        prev.filter((m) => m.id !== msg.id),
+                      )
+                    }
+                    className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    aria-label="Remove scheduled message"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* Input bar — sticky bottom */}
       {!isRecording && (
         <footer
@@ -1499,6 +1588,22 @@ export default function ChatViewScreen({
                 </span>
               </button>
 
+              {/* Schedule Message */}
+              <button
+                type="button"
+                data-ocid="chat.attach.schedule.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  setShowScheduleModal(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-teal-600 rounded-2xl flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-[11px] text-foreground">Schedule</span>
+              </button>
+
               {/* Cancel */}
               <button
                 type="button"
@@ -1532,6 +1637,17 @@ export default function ChatViewScreen({
           onReact={handleReact}
         />
       )}
+
+      {/* Schedule Message Modal */}
+      <ScheduleMessageModal
+        open={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        messageText={inputText}
+        onSchedule={(text, dt) => {
+          setScheduledMsgs((prev) => [...prev, { id: Date.now(), text, dt }]);
+          setInputText("");
+        }}
+      />
     </div>
   );
 }

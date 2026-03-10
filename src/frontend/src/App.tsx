@@ -12,6 +12,7 @@ import { useAppState } from "./hooks/useAppState";
 import CallsScreen from "./pages/CallsScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
+import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
 import LoginScreen from "./pages/LoginScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
@@ -21,7 +22,7 @@ import SettingsScreen from "./pages/SettingsScreen";
 import SplashScreen from "./pages/SplashScreen";
 import StatusScreen from "./pages/StatusScreen";
 
-export type TabName = "chats" | "calls" | "status" | "settings";
+export type TabName = "chats" | "calls" | "status" | "communities" | "settings";
 type AppView = "main" | "new-group" | "contacts";
 type AuthState = "splash" | "login" | "otp" | "profile" | "app";
 
@@ -302,6 +303,9 @@ export default function App() {
                   onOpenStarred={() => setStarredOpen(true)}
                   onOpenSettings={() => setActiveTab("settings")}
                 />
+              )}
+              {activeTab === "communities" && (
+                <CommunitiesScreen onOpenChat={handleOpenChat} />
               )}
               {activeTab === "calls" && (
                 <CallsScreen onOpenCall={appState.openCall} />

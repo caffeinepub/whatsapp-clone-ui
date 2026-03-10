@@ -1,4 +1,4 @@
-import { Grid3X3, MessageSquare, Phone, Radio } from "lucide-react";
+import { Grid3X3, MessageSquare, Phone, Radio, Users } from "lucide-react";
 import type { TabName } from "../App";
 
 interface BottomNavProps {
@@ -13,6 +13,7 @@ const tabs: {
 }[] = [
   { id: "chats", label: "Chats", icon: MessageSquare },
   { id: "status", label: "Updates", icon: Radio },
+  { id: "communities", label: "Communities", icon: Users },
   { id: "calls", label: "Calls", icon: Phone },
   { id: "settings", label: "Settings", icon: Grid3X3 },
 ];
@@ -45,7 +46,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               strokeWidth={isActive ? 2.5 : 2}
             />
             <span
-              className={`text-[10px] font-medium tracking-wide ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}`}
+              className={`text-[9px] font-medium tracking-wide ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}`}
             >
               {tab.label}
             </span>
