@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useState } from "react";
 import BottomNav from "./components/BottomNav";
 import BroadcastListsScreen from "./components/BroadcastListsScreen";
 import CallOverlay from "./components/CallOverlay";
@@ -11,14 +12,19 @@ import { useAppState } from "./hooks/useAppState";
 import CallsScreen from "./pages/CallsScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
+import ContactListScreen from "./pages/ContactListScreen";
+import LoginScreen from "./pages/LoginScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
+import OTPScreen from "./pages/OTPScreen";
+import ProfileCreationScreen from "./pages/ProfileCreationScreen";
 import SettingsScreen from "./pages/SettingsScreen";
+import SplashScreen from "./pages/SplashScreen";
 import StatusScreen from "./pages/StatusScreen";
 
 export type TabName = "chats" | "calls" | "status" | "settings";
-type AppView = "main" | "new-group";
+type AppView = "main" | "new-group" | "contacts";
+type AuthState = "splash" | "login" | "otp" | "profile" | "app";
 
-// Extra conversations from new groups
 const SEED_EXTRA_CONVS: {
   id: bigint;
   contactName: string;
@@ -56,7 +62,21 @@ const RECENT_STATUS_LIST = [
   },
 ];
 
+function getInitials(name: string) {
+  const parts = name.split(" ");
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 export default function App() {
+  // Auth flow
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    return localStorage.getItem("wa_auth_done") === "1" ? "app" : "splash";
+  });
+  const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
+  const [loginValue, setLoginValue] = useState("");
+
+  // Main app state
   const [activeTab, setActiveTab] = useState<TabName>("chats");
   const [openConversationId, setOpenConversationId] = useState<bigint | null>(
     null,
@@ -73,6 +93,36 @@ export default function App() {
   const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
 
   const appState = useAppState();
+
+  const handleLoginNext = useCallback(
+    (method: "phone" | "email", value: string) => {
+      setLoginMethod(method);
+      setLoginValue(value);
+      setAuthState("otp");
+    },
+    [],
+  );
+
+  const handleOTPVerified = useCallback(() => {
+    setAuthState("profile");
+  }, []);
+
+  const handleProfileDone = useCallback(
+    (name: string, bio: string, _avatar?: string) => {
+      appState.updateProfile(name, bio);
+      localStorage.setItem("wa_auth_done", "1");
+      setAuthState("app");
+    },
+    [appState.updateProfile],
+  );
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("wa_auth_done");
+    setAuthState("splash");
+    setActiveTab("chats");
+    setOpenConversationId(null);
+    setAppView("main");
+  }, []);
 
   const handleOpenChat = (conversationId: bigint) => {
     setOpenConversationId(conversationId);
@@ -97,14 +147,126 @@ export default function App() {
     setActiveTab("chats");
   };
 
+  const handleContactSelected = (contactName: string) => {
+    // Create a new conversation with this contact
+    const existing = seedConversations.find(
+      (c) => c.contactName === contactName,
+    );
+    if (existing) {
+      setAppView("main");
+      setOpenConversationId(existing.id);
+    } else {
+      const newConv = {
+        id: BigInt(Date.now()),
+        contactName,
+        initials: getInitials(contactName),
+        lastMsg: "",
+        time: "Now",
+        unread: 0,
+        isGroup: false,
+      };
+      setSeedConversations((prev) => [newConv, ...prev]);
+      setAppView("main");
+      setOpenConversationId(newConv.id);
+    }
+  };
+
+  // --- Auth screens ---
+  if (authState === "splash") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/50">
+        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
+          <SplashScreen onDone={() => setAuthState("login")} />
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
+  if (authState === "login") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/50">
+        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="login"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.25 }}
+              className="w-full h-full"
+            >
+              <LoginScreen onNext={handleLoginNext} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
+  if (authState === "otp") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/50">
+        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="otp"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.25 }}
+              className="w-full h-full"
+            >
+              <OTPScreen
+                method={loginMethod}
+                value={loginValue}
+                onVerified={handleOTPVerified}
+                onBack={() => setAuthState("login")}
+              />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
+  if (authState === "profile") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/50">
+        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="profile"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -40 }}
+              transition={{ duration: 0.25 }}
+              className="w-full h-full"
+            >
+              <ProfileCreationScreen onDone={handleProfileDone} />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
+  // --- Main app ---
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50">
-      {/* Phone frame on desktop */}
       <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
         {/* Main content area */}
         <div className="flex-1 overflow-hidden relative">
-          {/* New Group Screen overlays everything */}
-          {appView === "new-group" ? (
+          {/* Contacts screen */}
+          {appView === "contacts" ? (
+            <ContactListScreen
+              onBack={() => setAppView("main")}
+              onSelectContact={handleContactSelected}
+            />
+          ) : appView === "new-group" ? (
             <NewGroupScreen
               onBack={() => setAppView("main")}
               onGroupCreated={handleGroupCreated}
@@ -129,6 +291,7 @@ export default function App() {
                   onOpenBroadcast={() => setBroadcastOpen(true)}
                   onOpenStarred={() => setStarredOpen(true)}
                   onOpenSettings={() => setActiveTab("settings")}
+                  onOpenContacts={() => setAppView("contacts")}
                 />
               )}
               {activeTab === "status" && (
@@ -152,12 +315,13 @@ export default function App() {
                   wallpaper={appState.wallpaper}
                   onWallpaperChange={appState.setWallpaper}
                   onOpenQRCode={() => setQrCodeOpen(true)}
+                  onLogout={handleLogout}
                 />
               )}
             </>
           )}
 
-          {/* Call overlay — rendered inside the phone frame */}
+          {/* Call overlay */}
           {appState.activeCall && (
             <CallOverlay call={appState.activeCall} onEnd={appState.endCall} />
           )}
@@ -171,7 +335,7 @@ export default function App() {
             />
           )}
 
-          {/* Stage 6 overlay screens */}
+          {/* Stage 6 overlays */}
           {starredOpen && (
             <StarredMessagesScreen onBack={() => setStarredOpen(false)} />
           )}
@@ -192,7 +356,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Bottom nav — sticky, hidden when in chat view or new group */}
+        {/* Bottom nav */}
         {openConversationId === null && appView === "main" && (
           <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
         )}

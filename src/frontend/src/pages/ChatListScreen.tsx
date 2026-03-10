@@ -38,6 +38,7 @@ interface ChatListScreenProps {
   onOpenBroadcast?: () => void;
   onOpenStarred?: () => void;
   onOpenSettings?: () => void;
+  onOpenContacts?: () => void;
 }
 
 function formatTimestamp(ts?: bigint): string {
@@ -230,6 +231,7 @@ export default function ChatListScreen({
   onOpenBroadcast,
   onOpenStarred,
   onOpenSettings,
+  onOpenContacts: _onOpenContacts,
 }: ChatListScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");

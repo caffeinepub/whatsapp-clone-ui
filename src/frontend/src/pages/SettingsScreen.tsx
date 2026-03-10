@@ -44,6 +44,7 @@ interface SettingsScreenProps {
   wallpaper: WallpaperType;
   onWallpaperChange: (w: WallpaperType) => void;
   onOpenQRCode?: () => void;
+  onLogout?: () => void;
 }
 
 function SettingRow({
@@ -236,6 +237,7 @@ export default function SettingsScreen({
   wallpaper,
   onWallpaperChange,
   onOpenQRCode,
+  onLogout,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -980,7 +982,10 @@ export default function SettingsScreen({
             </AlertDialogCancel>
             <AlertDialogAction
               data-ocid="settings.logout.confirm_button"
-              onClick={() => setLogoutOpen(false)}
+              onClick={() => {
+                setLogoutOpen(false);
+                onLogout?.();
+              }}
             >
               Log out
             </AlertDialogAction>
