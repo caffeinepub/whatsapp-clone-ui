@@ -85,6 +85,26 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
+// Wrapper that shows a phone frame on desktop, full-screen on mobile
+function MobileFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-center min-h-screen min-h-[100dvh] bg-[#111b21] md:bg-muted/50">
+      <div
+        className="
+          relative flex flex-col
+          w-full h-screen h-[100dvh]
+          md:w-[390px] md:max-w-[390px] md:h-[844px] md:max-h-[844px]
+          md:rounded-[44px] md:overflow-hidden md:shadow-[0_0_0_10px_#1a1a2e,0_30px_80px_rgba(0,0,0,0.6)]
+          overflow-hidden bg-background
+        "
+        style={{ touchAction: "pan-y" }}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // Auth flow
   const [authState, setAuthState] = useState<AuthState>(() => {
@@ -181,7 +201,6 @@ export default function App() {
   };
 
   const handleContactSelected = (contactName: string) => {
-    // Create a new conversation with this contact
     const existing = seedConversations.find(
       (c) => c.contactName === contactName,
     );
@@ -207,83 +226,75 @@ export default function App() {
   // --- Auth screens ---
   if (authState === "splash") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-          <SplashScreen onDone={() => setAuthState("login")} />
-        </div>
-        <Toaster />
-      </div>
+      <MobileFrame>
+        <SplashScreen onDone={() => setAuthState("login")} />
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
     );
   }
 
   if (authState === "login") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="login"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25 }}
-              className="w-full h-full"
-            >
-              <LoginScreen onNext={handleLoginNext} />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-        <Toaster />
-      </div>
+      <MobileFrame>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key="login"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.25 }}
+            className="w-full h-full"
+          >
+            <LoginScreen onNext={handleLoginNext} />
+          </motion.div>
+        </AnimatePresence>
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
     );
   }
 
   if (authState === "otp") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="otp"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25 }}
-              className="w-full h-full"
-            >
-              <OTPScreen
-                method={loginMethod}
-                value={loginValue}
-                onVerified={handleOTPVerified}
-                onBack={() => setAuthState("login")}
-              />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-        <Toaster />
-      </div>
+      <MobileFrame>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key="otp"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.25 }}
+            className="w-full h-full"
+          >
+            <OTPScreen
+              method={loginMethod}
+              value={loginValue}
+              onVerified={handleOTPVerified}
+              onBack={() => setAuthState("login")}
+            />
+          </motion.div>
+        </AnimatePresence>
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
     );
   }
 
   if (authState === "profile") {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="profile"
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.25 }}
-              className="w-full h-full"
-            >
-              <ProfileCreationScreen onDone={handleProfileDone} />
-            </motion.div>
-          </AnimatePresence>
-        </div>
-        <Toaster />
-      </div>
+      <MobileFrame>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.25 }}
+            className="w-full h-full"
+          >
+            <ProfileCreationScreen onDone={handleProfileDone} />
+          </motion.div>
+        </AnimatePresence>
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
     );
   }
 
@@ -291,174 +302,172 @@ export default function App() {
   if (appLocked && localStorage.getItem("wa_app_lock_enabled") === "1") {
     const savedPin = localStorage.getItem("wa_app_lock_pin") ?? "0000";
     return (
-      <div className="flex items-center justify-center min-h-screen bg-muted/50">
-        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-          <AppLockScreen
-            savedPin={savedPin}
-            onUnlock={() => setAppLocked(false)}
-          />
-        </div>
-        <Toaster />
-      </div>
+      <MobileFrame>
+        <AppLockScreen
+          savedPin={savedPin}
+          onUnlock={() => setAppLocked(false)}
+        />
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
     );
   }
 
   // --- Main app ---
   return (
-    <div className="flex items-center justify-center min-h-screen bg-muted/50">
-      <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
-        {/* Main content area */}
-        <div className="flex-1 overflow-hidden relative">
-          {/* Contacts screen */}
-          {appView === "contacts" ? (
-            <ContactListScreen
-              onBack={() => setAppView("main")}
-              onSelectContact={handleContactSelected}
-            />
-          ) : appView === "new-group" ? (
-            <NewGroupScreen
-              onBack={() => setAppView("main")}
-              onGroupCreated={handleGroupCreated}
-            />
-          ) : openConversationId !== null ? (
-            <ChatViewScreen
-              conversationId={openConversationId}
-              onBack={handleCloseChat}
-              onOpenCall={appState.openCall}
-              wallpaper={appState.wallpaper}
-              onOpenMediaGallery={(contactName) =>
-                setMediaGalleryFor(contactName)
-              }
-            />
-          ) : (
-            <>
-              {activeTab === "chats" && (
-                <ChatListScreen
-                  onOpenChat={handleOpenChat}
-                  onNewGroup={() => setAppView("new-group")}
-                  extraConversations={seedConversations}
-                  onOpenBroadcast={() => setBroadcastOpen(true)}
-                  onOpenStarred={() => setStarredOpen(true)}
-                  onOpenSettings={() => setActiveTab("settings")}
-                  onOpenContacts={() => setAppView("contacts")}
-                />
-              )}
-              {activeTab === "status" && (
-                <StatusScreen
-                  onOpenStatusViewer={appState.openStatusViewer}
-                  userStatuses={appState.userStatuses}
-                  onAddStatus={appState.addUserStatus}
-                  onOpenStarred={() => setStarredOpen(true)}
-                  onOpenSettings={() => setActiveTab("settings")}
-                />
-              )}
-              {activeTab === "communities" && (
-                <CommunitiesScreen onOpenChat={handleOpenChat} />
-              )}
-              {activeTab === "payments" && <PaymentsScreen />}
-              {activeTab === "calls" && (
-                <CallsScreen onOpenCall={appState.openCall} />
-              )}
-              {activeTab === "settings" && (
-                <SettingsScreen
-                  darkMode={appState.darkMode}
-                  toggleDarkMode={appState.toggleDarkMode}
-                  userProfile={appState.userProfile}
-                  onUpdateProfile={appState.updateProfile}
-                  wallpaper={appState.wallpaper}
-                  onWallpaperChange={appState.setWallpaper}
-                  onOpenQRCode={() => setQrCodeOpen(true)}
-                  onLogout={handleLogout}
-                  onOpenStorage={() => setStorageOpen(true)}
-                  onOpenChatLock={() => setChatLockOpen(true)}
-                  onOpenQuickReplies={() => setQuickRepliesOpen(true)}
-                  onOpenTwoStep={() => setTwoStepOpen(true)}
-                  onOpenLinkedDevices={() => setLinkedDevicesOpen(true)}
-                  onOpenBusiness={() => setBusinessProfileOpen(true)}
-                  onOpenAppLock={() => setAppLocked(true)}
-                  onOpenBlockedContacts={() => setBlockedContactsOpen(true)}
-                />
-              )}
-            </>
-          )}
-
-          {/* Call overlay */}
-          {appState.activeCall && (
-            <CallOverlay call={appState.activeCall} onEnd={appState.endCall} />
-          )}
-
-          {/* Status viewer overlay */}
-          {appState.statusViewerOpen && (
-            <StatusViewer
-              statusList={RECENT_STATUS_LIST}
-              currentIndex={appState.statusViewerIndex}
-              onClose={appState.closeStatusViewer}
-            />
-          )}
-
-          {/* Stage 6 overlays */}
-          {starredOpen && (
-            <StarredMessagesScreen onBack={() => setStarredOpen(false)} />
-          )}
-          {broadcastOpen && (
-            <BroadcastListsScreen onBack={() => setBroadcastOpen(false)} />
-          )}
-          {qrCodeOpen && (
-            <QRCodeScreen
-              onBack={() => setQrCodeOpen(false)}
-              userName={appState.userProfile.name}
-            />
-          )}
-          {storageOpen && (
-            <StorageScreen onBack={() => setStorageOpen(false)} />
-          )}
-          {quickRepliesOpen && (
-            <QuickRepliesSettingsScreen
-              onBack={() => setQuickRepliesOpen(false)}
-            />
-          )}
-
-          {chatLockOpen && (
-            <ChatLockScreen onBack={() => setChatLockOpen(false)} />
-          )}
-          {mediaGalleryFor !== null && (
-            <MediaGalleryScreen
-              onBack={() => setMediaGalleryFor(null)}
-              contactName={mediaGalleryFor}
-            />
-          )}
-          {twoStepOpen && (
-            <TwoStepVerificationScreen onBack={() => setTwoStepOpen(false)} />
-          )}
-          {linkedDevicesOpen && (
-            <LinkedDevicesScreen onBack={() => setLinkedDevicesOpen(false)} />
-          )}
-          {businessProfileOpen && (
-            <BusinessProfileScreen
-              onBack={() => setBusinessProfileOpen(false)}
-            />
-          )}
-          {blockedContactsOpen && (
-            <BlockedContactsScreen
-              onBack={() => setBlockedContactsOpen(false)}
-            />
-          )}
-          <AdvancedSearchScreen
-            open={advancedSearchOpen}
-            onClose={() => setAdvancedSearchOpen(false)}
+    <MobileFrame>
+      {/* Main content area */}
+      <div className="flex-1 overflow-hidden relative">
+        {/* Contacts screen */}
+        {appView === "contacts" ? (
+          <ContactListScreen
+            onBack={() => setAppView("main")}
+            onSelectContact={handleContactSelected}
           />
-        </div>
+        ) : appView === "new-group" ? (
+          <NewGroupScreen
+            onBack={() => setAppView("main")}
+            onGroupCreated={handleGroupCreated}
+          />
+        ) : openConversationId !== null ? (
+          <ChatViewScreen
+            conversationId={openConversationId}
+            onBack={handleCloseChat}
+            onOpenCall={appState.openCall}
+            wallpaper={appState.wallpaper}
+            onOpenMediaGallery={(contactName) =>
+              setMediaGalleryFor(contactName)
+            }
+          />
+        ) : (
+          <>
+            {activeTab === "chats" && (
+              <ChatListScreen
+                onOpenChat={handleOpenChat}
+                onNewGroup={() => setAppView("new-group")}
+                extraConversations={seedConversations}
+                onOpenBroadcast={() => setBroadcastOpen(true)}
+                onOpenStarred={() => setStarredOpen(true)}
+                onOpenSettings={() => setActiveTab("settings")}
+                onOpenContacts={() => setAppView("contacts")}
+              />
+            )}
+            {activeTab === "status" && (
+              <StatusScreen
+                onOpenStatusViewer={appState.openStatusViewer}
+                userStatuses={appState.userStatuses}
+                onAddStatus={appState.addUserStatus}
+                onOpenStarred={() => setStarredOpen(true)}
+                onOpenSettings={() => setActiveTab("settings")}
+              />
+            )}
+            {activeTab === "communities" && (
+              <CommunitiesScreen onOpenChat={handleOpenChat} />
+            )}
+            {activeTab === "payments" && <PaymentsScreen />}
+            {activeTab === "calls" && (
+              <CallsScreen onOpenCall={appState.openCall} />
+            )}
+            {activeTab === "settings" && (
+              <SettingsScreen
+                darkMode={appState.darkMode}
+                toggleDarkMode={appState.toggleDarkMode}
+                userProfile={appState.userProfile}
+                onUpdateProfile={appState.updateProfile}
+                wallpaper={appState.wallpaper}
+                onWallpaperChange={appState.setWallpaper}
+                onOpenQRCode={() => setQrCodeOpen(true)}
+                onLogout={handleLogout}
+                onOpenStorage={() => setStorageOpen(true)}
+                onOpenChatLock={() => setChatLockOpen(true)}
+                onOpenQuickReplies={() => setQuickRepliesOpen(true)}
+                onOpenTwoStep={() => setTwoStepOpen(true)}
+                onOpenLinkedDevices={() => setLinkedDevicesOpen(true)}
+                onOpenBusiness={() => setBusinessProfileOpen(true)}
+                onOpenAppLock={() => setAppLocked(true)}
+                onOpenBlockedContacts={() => setBlockedContactsOpen(true)}
+              />
+            )}
+          </>
+        )}
 
-        {/* Bottom nav */}
-        {openConversationId === null && appView === "main" && (
-          <BottomNav
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            missedCallsCount={missedCallsCount}
+        {/* Call overlay */}
+        {appState.activeCall && (
+          <CallOverlay call={appState.activeCall} onEnd={appState.endCall} />
+        )}
+
+        {/* Status viewer overlay */}
+        {appState.statusViewerOpen && (
+          <StatusViewer
+            statusList={RECENT_STATUS_LIST}
+            currentIndex={appState.statusViewerIndex}
+            onClose={appState.closeStatusViewer}
           />
         )}
+
+        {/* Overlays */}
+        {starredOpen && (
+          <StarredMessagesScreen onBack={() => setStarredOpen(false)} />
+        )}
+        {broadcastOpen && (
+          <BroadcastListsScreen onBack={() => setBroadcastOpen(false)} />
+        )}
+        {qrCodeOpen && (
+          <QRCodeScreen
+            onBack={() => setQrCodeOpen(false)}
+            userName={appState.userProfile.name}
+          />
+        )}
+        {storageOpen && <StorageScreen onBack={() => setStorageOpen(false)} />}
+        {quickRepliesOpen && (
+          <QuickRepliesSettingsScreen
+            onBack={() => setQuickRepliesOpen(false)}
+          />
+        )}
+        {chatLockOpen && (
+          <ChatLockScreen onBack={() => setChatLockOpen(false)} />
+        )}
+        {mediaGalleryFor !== null && (
+          <MediaGalleryScreen
+            onBack={() => setMediaGalleryFor(null)}
+            contactName={mediaGalleryFor}
+          />
+        )}
+        {twoStepOpen && (
+          <TwoStepVerificationScreen onBack={() => setTwoStepOpen(false)} />
+        )}
+        {linkedDevicesOpen && (
+          <LinkedDevicesScreen onBack={() => setLinkedDevicesOpen(false)} />
+        )}
+        {businessProfileOpen && (
+          <BusinessProfileScreen onBack={() => setBusinessProfileOpen(false)} />
+        )}
+        {blockedContactsOpen && (
+          <BlockedContactsScreen onBack={() => setBlockedContactsOpen(false)} />
+        )}
+        <AdvancedSearchScreen
+          open={advancedSearchOpen}
+          onClose={() => setAdvancedSearchOpen(false)}
+        />
       </div>
-      <Toaster />
-    </div>
+
+      {/* Bottom nav */}
+      {openConversationId === null && appView === "main" && (
+        <BottomNav
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          missedCallsCount={missedCallsCount}
+        />
+      )}
+
+      {/* Toaster always at top */}
+      <Toaster
+        position="top-center"
+        richColors
+        closeButton
+        toastOptions={{
+          style: { marginTop: "env(safe-area-inset-top, 8px)" },
+        }}
+      />
+    </MobileFrame>
   );
 }

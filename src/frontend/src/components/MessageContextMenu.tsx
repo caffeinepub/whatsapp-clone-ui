@@ -4,11 +4,12 @@ import {
   Languages,
   Pin,
   Reply,
-  Smile,
+  Star,
   Trash2,
   X,
 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export interface ChatMessage {
   id: string;
@@ -22,6 +23,7 @@ export interface ChatMessage {
   voiceDuration?: string;
   imageUrl?: string;
   deletedForEveryone?: boolean;
+  starred?: boolean;
 }
 
 interface MessageContextMenuProps {
@@ -35,20 +37,23 @@ interface MessageContextMenuProps {
   onReact: (msg: ChatMessage) => void;
   onPin?: (msg: ChatMessage) => void;
   onTranslate?: (msg: ChatMessage) => void;
+  onStar?: (msg: ChatMessage) => void;
 }
+
+const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🙏"];
 
 const BASE_ACTIONS = [
   { id: "reply", label: "Reply", Icon: Reply, color: "text-foreground" },
-  { id: "copy", label: "Copy", Icon: Copy, color: "text-foreground" },
-  { id: "react", label: "React", Icon: Smile, color: "text-foreground" },
   { id: "forward", label: "Forward", Icon: Forward, color: "text-foreground" },
+  { id: "pin", label: "Pin", Icon: Pin, color: "text-foreground" },
+  { id: "star", label: "Star", Icon: Star, color: "text-foreground" },
   {
     id: "translate",
     label: "Translate",
     Icon: Languages,
     color: "text-foreground",
   },
-  { id: "pin", label: "Pin message", Icon: Pin, color: "text-foreground" },
+  { id: "copy", label: "Copy", Icon: Copy, color: "text-foreground" },
   { id: "delete", label: "Delete", Icon: Trash2, color: "text-destructive" },
 ];
 
@@ -63,6 +68,7 @@ export default function MessageContextMenu({
   onReact,
   onPin,
   onTranslate,
+  onStar,
 }: MessageContextMenuProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -83,16 +89,22 @@ export default function MessageContextMenu({
       case "delete":
         setShowDeleteConfirm(true);
         break;
-      case "react":
-        onReact(message);
-        onClose();
-        break;
       case "pin":
         onPin?.(message);
         onClose();
         break;
       case "translate":
         onTranslate?.(message);
+        onClose();
+        break;
+      case "star":
+        if (onStar) {
+          onStar(message);
+        } else {
+          toast.success(
+            message.starred ? "Message unstarred" : "Message starred",
+          );
+        }
         onClose();
         break;
     }
@@ -169,15 +181,36 @@ export default function MessageContextMenu({
       <div
         className={`absolute ${
           message.isSent ? "right-4" : "left-4"
-        } top-1/2 -translate-y-1/2 z-50 bg-background rounded-2xl shadow-2xl py-1 min-w-[160px]`}
+        } top-1/2 -translate-y-1/2 z-50 bg-background rounded-2xl shadow-2xl py-1 min-w-[180px] max-h-[80vh] overflow-y-auto`}
         data-ocid="chat.context.dropdown_menu"
       >
+        {/* Emoji reaction bar at top */}
+        <div className="flex items-center justify-around px-3 py-2.5 border-b border-border">
+          {REACTION_EMOJIS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              data-ocid="chat.context.react.button"
+              onClick={() => {
+                onReact({ ...message, content: emoji });
+                onClose();
+              }}
+              className="text-[22px] w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted/60 active:scale-125 transition-all"
+              aria-label={`React with ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+
+        {/* Message preview */}
         <div className="px-3 py-2 border-b border-border">
           <p className="text-[11px] text-muted-foreground font-medium truncate max-w-[200px]">
             {message.content.slice(0, 40)}
             {message.content.length > 40 ? "..." : ""}
           </p>
         </div>
+
         {BASE_ACTIONS.map(({ id, label, Icon, color }) => (
           <button
             type="button"
@@ -188,8 +221,16 @@ export default function MessageContextMenu({
               id === "delete" ? "border-t border-border" : ""
             }`}
           >
-            <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
-            <span className={`text-[14px] ${color}`}>{label}</span>
+            <Icon
+              className={`w-4 h-4 flex-shrink-0 ${
+                id === "star" && message.starred
+                  ? "text-amber-400 fill-amber-400"
+                  : color
+              }`}
+            />
+            <span className={`text-[14px] ${color}`}>
+              {id === "star" ? (message.starred ? "Unstar" : "Star") : label}
+            </span>
           </button>
         ))}
         <button

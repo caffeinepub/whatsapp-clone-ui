@@ -198,3 +198,186 @@
   border-right: 8px solid oklch(var(--wa-received));
   border-bottom: 8px solid transparent;
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   MOBILE UX — WhatsApp-grade optimizations
+   All rules below are additive and do not override existing tokens.
+══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Prevent overscroll / bounce (iOS rubber-band effect) ─────────── */
+html,
+body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* iOS Safari: disable elastic scroll at the root level */
+  -webkit-overflow-scrolling: auto;
+}
+
+/* ── 2. Smooth momentum scrolling on all scrollable containers ───────── */
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-auto,
+.overflow-scroll,
+[data-scroll],
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* ── 3. Hide scrollbars on mobile — keep them functional ─────────────── */
+@media (max-width: 768px) {
+  .overflow-y-auto::-webkit-scrollbar,
+  .overflow-y-scroll::-webkit-scrollbar,
+  .overflow-auto::-webkit-scrollbar,
+  .scroll-container::-webkit-scrollbar {
+    display: none;
+    width: 0;
+  }
+
+  .overflow-y-auto,
+  .overflow-y-scroll,
+  .overflow-auto,
+  .scroll-container {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+  }
+}
+
+/* ── 4. Tap highlight removal — no flash on touch ────────────────────── */
+button,
+a,
+[role="button"],
+[tabindex],
+label,
+input[type="checkbox"],
+input[type="radio"],
+input[type="submit"],
+input[type="reset"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* ── 5. Safe-area inset utility classes ──────────────────────────────── */
+
+/* Top safe area — use on fixed headers */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.mt-safe {
+  margin-top: env(safe-area-inset-top, 0px);
+}
+
+/* Bottom safe area — use on fixed footers / bottom nav */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Combined helpers */
+.inset-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Top bar that must sit BELOW the notch */
+.top-safe {
+  top: env(safe-area-inset-top, 0px);
+}
+
+/* ── 6. Touch-action: prevent accidental zoom on double-tap ──────────── */
+button,
+[role="button"],
+.wa-btn,
+.touch-none {
+  touch-action: manipulation;
+}
+
+/* All inputs: prevent iOS zoom-in on focus (font-size < 16px triggers it) */
+input,
+textarea,
+select {
+  font-size: 16px; /* minimum to suppress iOS auto-zoom */
+  touch-action: manipulation;
+}
+
+/* ── 7. Prevent text selection on interactive chrome elements ─────────── */
+.no-select,
+.wa-header-bar,
+.wa-nav-bar,
+[data-no-select] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ── 8. Full-height mobile shell ─────────────────────────────────────── */
+/*  Accounts for dynamic address bar in Chrome / Safari Mobile           */
+.h-screen-mobile {
+  height: 100svh; /* small viewport height — excludes browser chrome */
+  height: 100dvh; /* dynamic viewport — preferred when available      */
+}
+
+/* ── 9. Toaster always on top ────────────────────────────────────────── */
+[data-sonner-toaster] {
+  z-index: 99999 !important;
+  /* Sit below the notch so toasts are fully visible */
+  top: max(env(safe-area-inset-top, 0px), 12px) !important;
+}
+
+/* ── 10. WhatsApp phone-frame shell (desktop preview) ────────────────── */
+.wa-phone-frame {
+  /* Simulate the rounded phone body */
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px oklch(0.35 0 0),
+    0 0 0 8px oklch(0.25 0 0),
+    0 32px 80px oklch(0 0 0 / 0.6);
+}
+
+/* ── 11. Smooth transitions for sheet / modal overlays ───────────────── */
+.sheet-overlay {
+  transition: opacity 0.22s ease;
+}
+.sheet-content {
+  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ── 12. Elastic micro-bounce for sent messages ──────────────────────── */
+@keyframes msg-pop {
+  0%   { transform: scale(0.92); opacity: 0.6; }
+  60%  { transform: scale(1.03); }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.msg-pop {
+  animation: msg-pop 0.2s ease-out forwards;
+}
+
+/* ── 13. Typing indicator dots ───────────────────────────────────────── */
+@keyframes typing-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40%           { transform: scale(1);   opacity: 1;   }
+}
+.typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── 14. Status ring on avatars ──────────────────────────────────────── */
+.avatar-status-ring {
+  outline: 2.5px solid oklch(var(--wa-green));
+  outline-offset: 1.5px;
+}
+
+/* ── 15. Unread badge pulse ──────────────────────────────────────────── */
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(var(--wa-unread) / 0.5); }
+  50%       { box-shadow: 0 0 0 4px oklch(var(--wa-unread) / 0); }
+}
+.badge-pulse {
+  animation: badge-pulse 2s ease-in-out infinite;
+}

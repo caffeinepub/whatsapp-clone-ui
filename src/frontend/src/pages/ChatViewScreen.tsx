@@ -676,6 +676,7 @@ function ReactionPanel({
 // Extended ChatMessage type with imageUrl
 interface ExtChatMessage extends ChatMessage {
   imageUrl?: string;
+  starred?: boolean;
 }
 
 export default function ChatViewScreen({
@@ -2451,6 +2452,17 @@ export default function ChatViewScreen({
             setTranslatedMsgs((prev) => ({ ...prev, [msg.id]: translated }));
             setContextMsg(null);
             toast.success("Message translated");
+          }}
+          onStar={(msg) => {
+            setLocalMessages((prev) =>
+              prev.map((m) =>
+                m.id === msg.id ? { ...m, starred: !m.starred } : m,
+              ),
+            );
+            setContextMsg(null);
+            toast.success(
+              msg.starred ? "Message unstarred" : "Message starred",
+            );
           }}
         />
       )}
