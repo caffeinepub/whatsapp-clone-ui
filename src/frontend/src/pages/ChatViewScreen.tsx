@@ -8,13 +8,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowDown,
   ArrowLeft,
@@ -38,6 +50,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Message } from "../backend.d";
+import CameraModal from "../components/CameraModal";
 import ContactAvatar from "../components/ContactAvatar";
 import ContactInfoScreen from "../components/ContactInfoScreen";
 import EmojiPicker from "../components/EmojiPicker";
@@ -509,6 +522,31 @@ export default function ChatViewScreen({
     { id: number; text: string; dt: Date }[]
   >([]);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
+  const [showMuteSheet, setShowMuteSheet] = useState(false);
+  const [showDisappearingSheet, setShowDisappearingSheet] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [showCatalogueSheet, setShowCatalogueSheet] = useState(false);
+  const [showQuickRepliesSheet, setShowQuickRepliesSheet] = useState(false);
+  const [showLocationSheet, setShowLocationSheet] = useState(false);
+  const [showShareContactSheet, setShowShareContactSheet] = useState(false);
+  const [showPollSheet, setShowPollSheet] = useState(false);
+  const [showEventSheet, setShowEventSheet] = useState(false);
+  const [showUPISheet, setShowUPISheet] = useState(false);
+  const [selectedMuteOption, setSelectedMuteOption] = useState("8h");
+  const [selectedDisappearing, setSelectedDisappearing] = useState("off");
+  const [selectedShareContact, setSelectedShareContact] = useState("");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState(["", ""]);
+  const [pollMultipleAnswers, setPollMultipleAnswers] = useState(false);
+  const [eventName, setEventName] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventDesc, setEventDesc] = useState("");
+  const docInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -641,6 +679,50 @@ export default function ChatViewScreen({
     sendMessage(
       { conversationId, content: text },
       { onError: () => toast.error("Failed to send message") },
+    );
+  };
+
+  const sendMsg = (text: string) => {
+    const newMsg: ExtChatMessage = {
+      id: `local-${Date.now()}`,
+      content: text,
+      isSent: true,
+      time: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+      type: "text",
+      replyTo: null,
+      reactions: [],
+      tickState: "none",
+    };
+    setLocalMessages((prev) => [...prev, newMsg]);
+    setTimeout(
+      () =>
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMsg.id ? { ...m, tickState: "single" } : m,
+          ),
+        ),
+      500,
+    );
+    setTimeout(
+      () =>
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMsg.id ? { ...m, tickState: "double" } : m,
+          ),
+        ),
+      1200,
+    );
+    setTimeout(
+      () =>
+        setLocalMessages((prev) =>
+          prev.map((m) =>
+            m.id === newMsg.id ? { ...m, tickState: "seen" } : m,
+          ),
+        ),
+      2500,
     );
   };
 
@@ -977,14 +1059,14 @@ export default function ChatViewScreen({
                 <DropdownMenuItem
                   data-ocid="chat.menu.mute"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("Notifications muted")}
+                  onClick={() => setShowMuteSheet(true)}
                 >
                   Mute notifications
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.disappearing"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("Disappearing messages settings")}
+                  onClick={() => setShowDisappearingSheet(true)}
                 >
                   Disappearing messages
                 </DropdownMenuItem>
@@ -998,21 +1080,21 @@ export default function ChatViewScreen({
                 <DropdownMenuItem
                   data-ocid="chat.menu.export"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("Exporting chat...")}
+                  onClick={() => setShowExportDialog(true)}
                 >
                   Export chat
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.report"
                   className="text-[14px] py-2.5 cursor-pointer text-destructive"
-                  onClick={() => toast.error("Chat reported")}
+                  onClick={() => setShowReportDialog(true)}
                 >
                   Report
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.block"
                   className="text-[14px] py-2.5 cursor-pointer text-destructive"
-                  onClick={() => toast.error("Contact blocked")}
+                  onClick={() => setShowBlockDialog(true)}
                 >
                   Block
                 </DropdownMenuItem>
@@ -1417,7 +1499,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.document.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Choose a document");
+                  docInputRef.current?.click();
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1433,7 +1515,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.camera.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Opening camera");
+                  setShowCameraModal(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1464,7 +1546,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.audio.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Choose audio");
+                  audioInputRef.current?.click();
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1480,7 +1562,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.catalogue.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Business catalogue");
+                  setShowCatalogueSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1496,7 +1578,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.quickreply.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Quick replies");
+                  setShowQuickRepliesSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1512,7 +1594,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.location.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Share location");
+                  setShowLocationSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1528,7 +1610,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.contact.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Share contact");
+                  setShowShareContactSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1544,7 +1626,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.poll.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Create poll");
+                  setShowPollSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1560,7 +1642,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.event.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Create event");
+                  setShowEventSheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1576,7 +1658,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.upi.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  toast.info("Share UPI QR code");
+                  setShowUPISheet(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1648,6 +1730,655 @@ export default function ChatViewScreen({
           setInputText("");
         }}
       />
+
+      {/* Hidden file inputs */}
+      <input
+        ref={docInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.txt,.xlsx,.ppt,.pptx"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const kb = Math.round(file.size / 1024);
+          const sizeStr =
+            kb > 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+          sendMsg(`📄 ${file.name} · ${sizeStr}`);
+          e.target.value = "";
+        }}
+      />
+      <input
+        ref={audioInputRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          sendMsg(`🎵 ${file.name}`);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Camera Modal */}
+      <CameraModal
+        open={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+      />
+
+      {/* Mute Notifications Sheet */}
+      <Sheet open={showMuteSheet} onOpenChange={setShowMuteSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.mute.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Mute notifications
+            </SheetTitle>
+          </SheetHeader>
+          <RadioGroup
+            value={selectedMuteOption}
+            onValueChange={setSelectedMuteOption}
+            className="space-y-3"
+          >
+            {(
+              [
+                ["8h", "8 hours"],
+                ["1w", "1 week"],
+                ["always", "Always"],
+              ] as const
+            ).map(([val, label]) => (
+              <button
+                type="button"
+                key={val}
+                className="flex items-center justify-between py-2 cursor-pointer w-full"
+                onClick={() => setSelectedMuteOption(val)}
+              >
+                <span className="text-[15px] text-foreground">{label}</span>
+                <RadioGroupItem value={val} />
+              </button>
+            ))}
+          </RadioGroup>
+          <Button
+            data-ocid="chat.mute.confirm_button"
+            className="w-full mt-5 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              const labels: Record<string, string> = {
+                "8h": "8 hours",
+                "1w": "1 week",
+                always: "always",
+              };
+              toast.success(
+                `Notifications muted for ${labels[selectedMuteOption]}`,
+              );
+              setShowMuteSheet(false);
+            }}
+          >
+            Mute
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Disappearing Messages Sheet */}
+      <Sheet
+        open={showDisappearingSheet}
+        onOpenChange={setShowDisappearingSheet}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.disappearing.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Disappearing messages
+            </SheetTitle>
+          </SheetHeader>
+          <p className="text-[13px] text-muted-foreground mb-4">
+            Messages will disappear after the selected duration.
+          </p>
+          <RadioGroup
+            value={selectedDisappearing}
+            onValueChange={setSelectedDisappearing}
+            className="space-y-3"
+          >
+            {(
+              [
+                ["off", "Off"],
+                ["24h", "24 hours"],
+                ["7d", "7 days"],
+                ["90d", "90 days"],
+              ] as const
+            ).map(([val, label]) => (
+              <button
+                type="button"
+                key={val}
+                className="flex items-center justify-between py-2 cursor-pointer w-full"
+                onClick={() => setSelectedDisappearing(val)}
+              >
+                <span className="text-[15px] text-foreground">{label}</span>
+                <RadioGroupItem value={val} />
+              </button>
+            ))}
+          </RadioGroup>
+          <Button
+            data-ocid="chat.disappearing.save_button"
+            className="w-full mt-5 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              const labels: Record<string, string> = {
+                off: "off",
+                "24h": "24 hours",
+                "7d": "7 days",
+                "90d": "90 days",
+              };
+              toast.success(
+                `Disappearing messages: ${labels[selectedDisappearing]}`,
+              );
+              setShowDisappearingSheet(false);
+            }}
+          >
+            Save
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Export Chat Dialog */}
+      <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <AlertDialogContent
+          data-ocid="chat.export.dialog"
+          className="max-w-[320px] rounded-2xl"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Export chat</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose how you want to export this chat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+            <AlertDialogAction
+              data-ocid="chat.export.without_media.button"
+              className="bg-[#25D366] hover:bg-[#25D366]/90 text-white w-full"
+              onClick={() => {
+                toast.success("Chat exported without media");
+                setShowExportDialog(false);
+              }}
+            >
+              Export without media
+            </AlertDialogAction>
+            <AlertDialogAction
+              data-ocid="chat.export.with_media.button"
+              className="bg-[#25D366] hover:bg-[#25D366]/90 text-white w-full"
+              onClick={() => {
+                toast.success("Chat exported with media");
+                setShowExportDialog(false);
+              }}
+            >
+              Include media
+            </AlertDialogAction>
+            <AlertDialogCancel
+              data-ocid="chat.export.cancel_button"
+              className="w-full"
+            >
+              Cancel
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report Dialog */}
+      <AlertDialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <AlertDialogContent
+          data-ocid="chat.report.dialog"
+          className="max-w-[320px] rounded-2xl"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Report {contactName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will also block them and report the last 5 messages to
+              WhatsApp.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="chat.report.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="chat.report.confirm_button"
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={() => {
+                toast.success("Reported");
+                setShowReportDialog(false);
+              }}
+            >
+              Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Block Dialog */}
+      <AlertDialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <AlertDialogContent
+          data-ocid="chat.block.dialog"
+          className="max-w-[320px] rounded-2xl"
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block {contactName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Blocked contacts will no longer be able to call you or send you
+              messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="chat.block.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="chat.block.confirm_button"
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              onClick={() => {
+                toast.success("Blocked");
+                setShowBlockDialog(false);
+              }}
+            >
+              Block
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Business Catalogue Sheet */}
+      <Sheet open={showCatalogueSheet} onOpenChange={setShowCatalogueSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.catalogue.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Business Catalogue
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col items-center py-8 gap-3">
+            <span className="text-5xl">📦</span>
+            <p className="text-[15px] font-semibold text-foreground">
+              No products listed yet
+            </p>
+            <p className="text-[13px] text-muted-foreground text-center">
+              Add products to share them with customers.
+            </p>
+            <Button
+              data-ocid="chat.catalogue.add_button"
+              className="mt-2 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            >
+              Add Product
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Quick Replies Sheet */}
+      <Sheet
+        open={showQuickRepliesSheet}
+        onOpenChange={setShowQuickRepliesSheet}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.quickreplies.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Quick Replies
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-2">
+            {[
+              "Thanks for reaching out! How can we help you today?",
+              "We'll get back to you shortly. Please hold on.",
+              "Yes, we're open! Our hours are 9am–6pm Mon–Sat.",
+            ].map((reply, i) => (
+              <button
+                key={reply}
+                type="button"
+                data-ocid={`chat.quickreplies.item.${i + 1}`}
+                className="w-full text-left px-4 py-3 bg-muted/50 rounded-xl hover:bg-muted transition-colors"
+                onClick={() => {
+                  setInputText(reply);
+                  setShowQuickRepliesSheet(false);
+                }}
+              >
+                <p className="text-[14px] text-foreground">{reply}</p>
+              </button>
+            ))}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Location Sheet */}
+      <Sheet open={showLocationSheet} onOpenChange={setShowLocationSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.location.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Share Location
+            </SheetTitle>
+          </SheetHeader>
+          <div className="w-full h-40 bg-muted rounded-2xl flex items-center justify-center mb-4 relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-10"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(0deg,transparent,transparent 20px,hsl(var(--foreground)) 20px,hsl(var(--foreground)) 21px),repeating-linear-gradient(90deg,transparent,transparent 20px,hsl(var(--foreground)) 20px,hsl(var(--foreground)) 21px)",
+              }}
+            />
+            <div className="flex flex-col items-center gap-1 z-10">
+              <MapPin className="w-8 h-8 text-destructive" />
+              <span className="text-[12px] text-muted-foreground font-semibold">
+                Current Location
+              </span>
+            </div>
+          </div>
+          <p className="text-[14px] text-foreground font-semibold mb-1">
+            📍 Mumbai, India
+          </p>
+          <p className="text-[12px] text-muted-foreground mb-4">
+            Bandra West, Mumbai 400050
+          </p>
+          <Button
+            data-ocid="chat.location.send_button"
+            className="w-full bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              sendMsg("📍 Location: Bandra West, Mumbai 400050");
+              setShowLocationSheet(false);
+            }}
+          >
+            Send Location
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Share Contact Sheet */}
+      <Sheet
+        open={showShareContactSheet}
+        onOpenChange={setShowShareContactSheet}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.sharecontact.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Share Contact
+            </SheetTitle>
+          </SheetHeader>
+          <RadioGroup
+            value={selectedShareContact}
+            onValueChange={setSelectedShareContact}
+            className="space-y-1"
+          >
+            {[
+              "Emma Rodriguez · +91 98765 43210",
+              "Marcus Chen · +1 415 555 0182",
+              "Priya Sharma · +91 99887 76655",
+              "Jordan Williams · +44 7700 900123",
+              "Sarah Johnson · +61 412 345 678",
+            ].map((contact, i) => (
+              <button
+                type="button"
+                key={contact}
+                data-ocid={`chat.sharecontact.item.${i + 1}`}
+                className="flex items-center justify-between py-2.5 px-2 cursor-pointer hover:bg-muted/40 rounded-xl w-full"
+                onClick={() => setSelectedShareContact(contact)}
+              >
+                <span className="text-[14px] text-foreground">{contact}</span>
+                <RadioGroupItem value={contact} />
+              </button>
+            ))}
+          </RadioGroup>
+          <Button
+            data-ocid="chat.sharecontact.send_button"
+            disabled={!selectedShareContact}
+            className="w-full mt-4 bg-[#25D366] hover:bg-[#25D366]/90 text-white disabled:opacity-50"
+            onClick={() => {
+              if (!selectedShareContact) return;
+              sendMsg(`👤 Contact: ${selectedShareContact}`);
+              setShowShareContactSheet(false);
+              setSelectedShareContact("");
+            }}
+          >
+            Send Contact
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Create Poll Sheet */}
+      <Sheet open={showPollSheet} onOpenChange={setShowPollSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4 max-h-[85vh] overflow-y-auto"
+          data-ocid="chat.poll.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Create Poll
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-[13px] text-muted-foreground mb-1 block">
+                Question
+              </Label>
+              <Input
+                data-ocid="chat.poll.input"
+                placeholder="Ask a question..."
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                className="bg-muted/50 border-0 rounded-xl"
+              />
+            </div>
+            {pollOptions.map((opt, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: poll options ordered by index
+              <div key={i}>
+                <Label className="text-[13px] text-muted-foreground mb-1 block">
+                  Option {i + 1}
+                </Label>
+                <Input
+                  placeholder={`Option ${i + 1}`}
+                  value={opt}
+                  onChange={(e) =>
+                    setPollOptions((prev) =>
+                      prev.map((o, idx) => (idx === i ? e.target.value : o)),
+                    )
+                  }
+                  className="bg-muted/50 border-0 rounded-xl"
+                />
+              </div>
+            ))}
+            <button
+              type="button"
+              data-ocid="chat.poll.add_option.button"
+              className="text-[#25D366] text-[14px] font-semibold py-1"
+              onClick={() => setPollOptions((prev) => [...prev, ""])}
+            >
+              + Add option
+            </button>
+            <div className="flex items-center justify-between py-2">
+              <Label className="text-[14px] text-foreground">
+                Allow multiple answers
+              </Label>
+              <Switch
+                data-ocid="chat.poll.multiple.switch"
+                checked={pollMultipleAnswers}
+                onCheckedChange={setPollMultipleAnswers}
+              />
+            </div>
+          </div>
+          <Button
+            data-ocid="chat.poll.create_button"
+            disabled={!pollQuestion.trim()}
+            className="w-full mt-5 bg-[#25D366] hover:bg-[#25D366]/90 text-white disabled:opacity-50"
+            onClick={() => {
+              const opts = pollOptions.filter((o) => o.trim());
+              sendMsg(
+                `📊 Poll: ${pollQuestion}\n${opts.map((o, i) => `${i + 1}. ${o}`).join("\n")}`,
+              );
+              setShowPollSheet(false);
+              setPollQuestion("");
+              setPollOptions(["", ""]);
+            }}
+          >
+            Create Poll
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Create Event Sheet */}
+      <Sheet open={showEventSheet} onOpenChange={setShowEventSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4 max-h-[85vh] overflow-y-auto"
+          data-ocid="chat.event.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Create Event
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-[13px] text-muted-foreground mb-1 block">
+                Event name
+              </Label>
+              <Input
+                data-ocid="chat.event.name.input"
+                placeholder="Event name"
+                value={eventName}
+                onChange={(e) => setEventName(e.target.value)}
+                className="bg-muted/50 border-0 rounded-xl"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-[13px] text-muted-foreground mb-1 block">
+                  Date
+                </Label>
+                <Input
+                  data-ocid="chat.event.date.input"
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                  className="bg-muted/50 border-0 rounded-xl"
+                />
+              </div>
+              <div>
+                <Label className="text-[13px] text-muted-foreground mb-1 block">
+                  Time
+                </Label>
+                <Input
+                  data-ocid="chat.event.time.input"
+                  type="time"
+                  value={eventTime}
+                  onChange={(e) => setEventTime(e.target.value)}
+                  className="bg-muted/50 border-0 rounded-xl"
+                />
+              </div>
+            </div>
+            <div>
+              <Label className="text-[13px] text-muted-foreground mb-1 block">
+                Description (optional)
+              </Label>
+              <Textarea
+                data-ocid="chat.event.desc.textarea"
+                placeholder="Add a description..."
+                value={eventDesc}
+                onChange={(e) => setEventDesc(e.target.value)}
+                className="bg-muted/50 border-0 rounded-xl resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+          <Button
+            data-ocid="chat.event.create_button"
+            disabled={!eventName.trim()}
+            className="w-full mt-5 bg-[#25D366] hover:bg-[#25D366]/90 text-white disabled:opacity-50"
+            onClick={() => {
+              sendMsg(
+                `📅 Event: ${eventName} | ${eventDate} ${eventTime}${eventDesc ? ` | ${eventDesc}` : ""}`,
+              );
+              setShowEventSheet(false);
+              setEventName("");
+              setEventDate("");
+              setEventTime("");
+              setEventDesc("");
+            }}
+          >
+            Create Event
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* UPI QR Sheet */}
+      <Sheet open={showUPISheet} onOpenChange={setShowUPISheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="chat.upi.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Share UPI QR Code
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-44 h-44 bg-white border-2 border-border rounded-2xl p-3 flex items-center justify-center">
+              <div
+                className="w-full h-full grid"
+                style={{ gridTemplateColumns: "repeat(7,1fr)", gap: "2px" }}
+              >
+                {Array.from({ length: 49 }).map((_, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed QR grid
+                    key={i}
+                    className={`rounded-[1px] ${[0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 20, 21, 27, 28, 34, 35, 41, 42, 43, 44, 45, 46, 47, 48, 10, 17, 24, 31].includes(i) ? "bg-gray-900" : "bg-transparent"}`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-[16px] font-bold text-foreground">
+                user@paytm
+              </p>
+              <p className="text-[12px] text-muted-foreground">UPI ID</p>
+            </div>
+          </div>
+          <Button
+            data-ocid="chat.upi.share_button"
+            className="w-full mt-5 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              sendMsg("💳 UPI QR Code: user@paytm");
+              setShowUPISheet(false);
+            }}
+          >
+            Share QR Code
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

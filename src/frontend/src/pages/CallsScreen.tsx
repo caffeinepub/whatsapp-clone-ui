@@ -8,13 +8,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreVertical, Phone, Search, Video } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
+import {
+  CalendarClock,
+  Megaphone,
+  MoreVertical,
+  Phone,
+  Search,
+  Settings2,
+  Video,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import ContactAvatar from "../components/ContactAvatar";
@@ -77,6 +94,13 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
   const [newCallOpen, setNewCallOpen] = useState(false);
   const [clearLogOpen, setClearLogOpen] = useState(false);
   const [calls, setCalls] = useState(RECENT_CALLS);
+  const [showAdvertiseSheet, setShowAdvertiseSheet] = useState(false);
+  const [showScheduledSheet, setShowScheduledSheet] = useState(false);
+  const [showCallSettingsSheet, setShowCallSettingsSheet] = useState(false);
+  const [ringtoneOn, setRingtoneOn] = useState(true);
+  const [vibrateOn, setVibrateOn] = useState(true);
+  const [callWaitingOn, setCallWaitingOn] = useState(false);
+  const [wifiCallingOn, setWifiCallingOn] = useState(false);
 
   const handleClearLog = () => {
     setCalls([]);
@@ -104,7 +128,6 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
             >
               <Search className="w-5 h-5" />
             </button>
-            {/* 3-dot menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -124,7 +147,7 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
                 <DropdownMenuItem
                   data-ocid="calls.menu.advertise"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("Advertise on WhatsApp")}
+                  onClick={() => setShowAdvertiseSheet(true)}
                 >
                   Advertise
                 </DropdownMenuItem>
@@ -138,14 +161,14 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
                 <DropdownMenuItem
                   data-ocid="calls.menu.scheduled"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("No scheduled calls")}
+                  onClick={() => setShowScheduledSheet(true)}
                 >
                   Scheduled calls
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="calls.menu.settings"
                   className="text-[14px] py-2.5 cursor-pointer"
-                  onClick={() => toast.info("Call settings")}
+                  onClick={() => setShowCallSettingsSheet(true)}
                 >
                   Settings
                 </DropdownMenuItem>
@@ -156,7 +179,6 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
       </header>
 
       <main className="flex-1 overflow-y-auto bg-card">
-        {/* New call button */}
         <div className="px-4 py-3 border-b border-border">
           <button
             type="button"
@@ -173,7 +195,6 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
           </button>
         </div>
 
-        {/* Recent calls */}
         <div className="px-4 py-3">
           <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             Recent
@@ -279,8 +300,7 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Clear call log?</AlertDialogTitle>
             <AlertDialogDescription>
-              All recent calls will be removed from your call history. This
-              action cannot be undone.
+              All recent calls will be removed. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -297,6 +317,175 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Advertise Sheet */}
+      <Sheet open={showAdvertiseSheet} onOpenChange={setShowAdvertiseSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="calls.advertise.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-5">
+            <SheetTitle className="text-[17px] font-bold">
+              Advertise on WhatsApp
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="w-16 h-16 bg-[#25D366]/15 rounded-2xl flex items-center justify-center">
+              <Megaphone className="w-8 h-8 text-[#25D366]" />
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-[16px] font-bold text-foreground">
+                Reach more customers
+              </p>
+              <p className="text-[13px] text-muted-foreground leading-relaxed">
+                Create ads that send people directly to your WhatsApp chat.
+                Connect with more customers and grow your business.
+              </p>
+            </div>
+            <div className="w-full space-y-2 mt-2">
+              {[
+                "Target the right audience",
+                "Get more leads instantly",
+                "Track ad performance",
+              ].map((f) => (
+                <div key={f} className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-[#25D366]/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-[10px] text-[#25D366] font-bold">
+                      ✓
+                    </span>
+                  </div>
+                  <p className="text-[14px] text-foreground">{f}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <Button
+            data-ocid="calls.advertise.learn_more.button"
+            className="w-full mt-4 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              toast.success("Opening WhatsApp Ads...");
+              setShowAdvertiseSheet(false);
+            }}
+          >
+            Learn More
+          </Button>
+        </SheetContent>
+      </Sheet>
+
+      {/* Scheduled Calls Sheet */}
+      <Sheet open={showScheduledSheet} onOpenChange={setShowScheduledSheet}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="calls.scheduled.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold">
+              Scheduled Calls
+            </SheetTitle>
+          </SheetHeader>
+          <div
+            data-ocid="calls.scheduled.empty_state"
+            className="flex flex-col items-center py-10 gap-3"
+          >
+            <CalendarClock className="w-14 h-14 text-muted-foreground/40" />
+            <p className="text-[15px] font-semibold text-foreground">
+              No scheduled calls
+            </p>
+            <p className="text-[13px] text-muted-foreground text-center">
+              Schedule a call with your contacts to get a reminder.
+            </p>
+            <Button
+              data-ocid="calls.scheduled.schedule.button"
+              className="mt-2 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+              onClick={() => {
+                toast.success("Call scheduling coming soon!");
+                setShowScheduledSheet(false);
+              }}
+            >
+              Schedule a Call
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Call Settings Sheet */}
+      <Sheet
+        open={showCallSettingsSheet}
+        onOpenChange={setShowCallSettingsSheet}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-3xl px-5 pb-8 pt-4"
+          data-ocid="calls.settings.sheet"
+        >
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-4" />
+          <SheetHeader className="mb-4">
+            <SheetTitle className="text-[17px] font-bold flex items-center gap-2">
+              <Settings2 className="w-5 h-5" /> Call Settings
+            </SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4">
+            {[
+              {
+                label: "Ringtone",
+                desc: "Play ringtone on incoming calls",
+                val: ringtoneOn,
+                set: setRingtoneOn,
+                id: "ringtone",
+              },
+              {
+                label: "Vibrate",
+                desc: "Vibrate on incoming calls",
+                val: vibrateOn,
+                set: setVibrateOn,
+                id: "vibrate",
+              },
+              {
+                label: "Call waiting",
+                desc: "Notify about calls during active call",
+                val: callWaitingOn,
+                set: setCallWaitingOn,
+                id: "call_waiting",
+              },
+              {
+                label: "Wi-Fi calling",
+                desc: "Make calls over Wi-Fi",
+                val: wifiCallingOn,
+                set: setWifiCallingOn,
+                id: "wifi_calling",
+              },
+            ].map(({ label, desc, val, set, id }) => (
+              <div key={id} className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-[15px] font-semibold text-foreground">
+                    {label}
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">{desc}</p>
+                </div>
+                <Switch
+                  data-ocid={`calls.settings.${id}.switch`}
+                  checked={val}
+                  onCheckedChange={set}
+                />
+              </div>
+            ))}
+          </div>
+          <Button
+            data-ocid="calls.settings.save_button"
+            className="w-full mt-6 bg-[#25D366] hover:bg-[#25D366]/90 text-white"
+            onClick={() => {
+              toast.success("Call settings saved");
+              setShowCallSettingsSheet(false);
+            }}
+          >
+            Save Settings
+          </Button>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
