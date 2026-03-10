@@ -1,10 +1,23 @@
-import { Grid3X3, MessageSquare, Phone, Radio, Users } from "lucide-react";
+import {
+  CreditCard,
+  Grid3X3,
+  MessageSquare,
+  Phone,
+  Radio,
+  Users,
+} from "lucide-react";
 import type { TabName } from "../App";
 
 interface BottomNavProps {
   activeTab: TabName;
   onTabChange: (tab: TabName) => void;
 }
+
+const BADGES: Partial<Record<TabName, number>> = {
+  chats: 5,
+  calls: 2,
+  communities: 1,
+};
 
 const tabs: {
   id: TabName;
@@ -15,6 +28,7 @@ const tabs: {
   { id: "status", label: "Updates", icon: Radio },
   { id: "communities", label: "Communities", icon: Users },
   { id: "calls", label: "Calls", icon: Phone },
+  { id: "payments", label: "Payments", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Grid3X3 },
 ];
 
@@ -27,6 +41,7 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
+        const badge = isActive ? 0 : (BADGES[tab.id] ?? 0);
         return (
           <button
             key={tab.id}
@@ -41,10 +56,20 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
             aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
           >
-            <Icon
-              className={`w-5 h-5 ${isActive ? "fill-wa-nav-active/20 stroke-wa-nav-active" : "stroke-muted-foreground"}`}
-              strokeWidth={isActive ? 2.5 : 2}
-            />
+            <div className="relative">
+              <Icon
+                className={`w-5 h-5 ${isActive ? "fill-wa-nav-active/20 stroke-wa-nav-active" : "stroke-muted-foreground"}`}
+                strokeWidth={isActive ? 2.5 : 2}
+              />
+              {badge > 0 && (
+                <span
+                  data-ocid={`nav.${tab.id}.badge`}
+                  className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm"
+                >
+                  {badge}
+                </span>
+              )}
+            </div>
             <span
               className={`text-[9px] font-medium tracking-wide ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}`}
             >

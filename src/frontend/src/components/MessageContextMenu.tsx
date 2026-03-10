@@ -1,4 +1,4 @@
-import { Copy, Forward, Reply, Smile, Trash2, X } from "lucide-react";
+import { Copy, Forward, Pin, Reply, Smile, Trash2, X } from "lucide-react";
 
 export interface ChatMessage {
   id: string;
@@ -21,6 +21,7 @@ interface MessageContextMenuProps {
   onForward: (msg: ChatMessage) => void;
   onDelete: (msg: ChatMessage) => void;
   onReact: (msg: ChatMessage) => void;
+  onPin?: (msg: ChatMessage) => void;
 }
 
 const MENU_ACTIONS = [
@@ -28,6 +29,7 @@ const MENU_ACTIONS = [
   { id: "copy", label: "Copy", Icon: Copy, color: "text-foreground" },
   { id: "react", label: "React", Icon: Smile, color: "text-foreground" },
   { id: "forward", label: "Forward", Icon: Forward, color: "text-foreground" },
+  { id: "pin", label: "Pin message", Icon: Pin, color: "text-foreground" },
   { id: "delete", label: "Delete", Icon: Trash2, color: "text-destructive" },
 ];
 
@@ -39,6 +41,7 @@ export default function MessageContextMenu({
   onForward,
   onDelete,
   onReact,
+  onPin,
 }: MessageContextMenuProps) {
   const handleAction = (id: string) => {
     switch (id) {
@@ -56,6 +59,9 @@ export default function MessageContextMenu({
         break;
       case "react":
         onReact(message);
+        break;
+      case "pin":
+        onPin?.(message);
         break;
     }
     onClose();

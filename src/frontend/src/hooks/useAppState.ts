@@ -5,6 +5,7 @@ export interface ActiveCall {
   initials: string;
   kind: "voice" | "video";
   colorIndex: number;
+  incoming?: boolean;
 }
 
 export interface UserProfile {

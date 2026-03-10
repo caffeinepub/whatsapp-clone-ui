@@ -53,10 +53,13 @@ import type { Message } from "../backend.d";
 import CameraModal from "../components/CameraModal";
 import ContactAvatar from "../components/ContactAvatar";
 import ContactInfoScreen from "../components/ContactInfoScreen";
+import ContactShareModal from "../components/ContactShareModal";
 import EmojiPicker from "../components/EmojiPicker";
+import ForwardMessageSheet from "../components/ForwardMessageSheet";
 import MessageContextMenu, {
   type ChatMessage,
 } from "../components/MessageContextMenu";
+import PollCreationModal from "../components/PollCreationModal";
 import ScheduleMessageModal from "../components/ScheduleMessageModal";
 import type { ActiveCall, WallpaperType } from "../hooks/useAppState";
 import {
@@ -320,6 +323,84 @@ function TypingIndicator() {
   );
 }
 
+// Link preview helper
+function extractUrl(text: string): string | null {
+  const urlRegex = /https?:\/\/[^\s]+/;
+  const match = text.match(urlRegex);
+  return match ? match[0] : null;
+}
+
+function getDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
+}
+
+const LINK_PREVIEWS: Record<
+  string,
+  { title: string; description: string; color: string }
+> = {
+  "youtube.com": {
+    title: "YouTube Video",
+    description: "Watch this amazing video on YouTube",
+    color: "bg-red-500",
+  },
+  "github.com": {
+    title: "GitHub Repository",
+    description: "Explore code, issues and more on GitHub",
+    color: "bg-gray-800",
+  },
+  "twitter.com": {
+    title: "Tweet",
+    description: "See what's happening on Twitter",
+    color: "bg-sky-500",
+  },
+  "x.com": {
+    title: "Post on X",
+    description: "See the latest on X (formerly Twitter)",
+    color: "bg-gray-900",
+  },
+  "medium.com": {
+    title: "Article on Medium",
+    description: "Read this interesting article on Medium",
+    color: "bg-green-700",
+  },
+};
+
+function LinkPreview({ url }: { url: string }) {
+  const domain = getDomain(url);
+  const preview = LINK_PREVIEWS[domain] ?? {
+    title: `${domain.charAt(0).toUpperCase()}${domain.slice(1)}`,
+    description: url.length > 60 ? `${url.slice(0, 60)}...` : url,
+    color: "bg-wa-green",
+  };
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block mt-2 rounded-xl overflow-hidden border border-border/40 bg-background/60 hover:opacity-90 transition-opacity no-underline"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className={`${preview.color} px-3 py-1.5`}>
+        <p className="text-white text-[10px] font-bold uppercase tracking-wider truncate">
+          {domain}
+        </p>
+      </div>
+      <div className="px-3 py-2">
+        <p className="text-[12px] font-semibold text-foreground">
+          {preview.title}
+        </p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+          {preview.description}
+        </p>
+      </div>
+    </a>
+  );
+}
+
 function MessageBubble({
   msg,
   onLongPress,
@@ -424,9 +505,14 @@ function MessageBubble({
             </p>
           </div>
         ) : (
-          <p className="leading-snug break-words pr-8">
-            {renderContent(msg.content)}
-          </p>
+          <div>
+            <p className="leading-snug break-words pr-8">
+              {renderContent(msg.content)}
+            </p>
+            {extractUrl(msg.content) && (
+              <LinkPreview url={extractUrl(msg.content)!} />
+            )}
+          </div>
         )}
 
         <span className="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] opacity-60 whitespace-nowrap">
@@ -517,6 +603,8 @@ export default function ChatViewScreen({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [skeletonLoading, setSkeletonLoading] = useState(true);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduledMsgs, setScheduledMsgs] = useState<
     { id: number; text: string; dt: Date }[]
@@ -535,6 +623,12 @@ export default function ChatViewScreen({
   const [showPollSheet, setShowPollSheet] = useState(false);
   const [showEventSheet, setShowEventSheet] = useState(false);
   const [showUPISheet, setShowUPISheet] = useState(false);
+  const [showForwardSheet, setShowForwardSheet] = useState(false);
+  const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [showPollCreation, setShowPollCreation] = useState(false);
+  const [showContactShareModal, setShowContactShareModal] = useState(false);
+  const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
+  const [pinnedDismissed, setPinnedDismissed] = useState(false);
   const [selectedMuteOption, setSelectedMuteOption] = useState("8h");
   const [selectedDisappearing, setSelectedDisappearing] = useState("off");
   const [selectedShareContact, setSelectedShareContact] = useState("");
@@ -619,6 +713,11 @@ export default function ChatViewScreen({
   useEffect(() => {
     markAsRead(conversationId);
   }, [conversationId, markAsRead]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSkeletonLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: messagesEndRef is stable
   useEffect(() => {
@@ -806,8 +905,9 @@ export default function ChatViewScreen({
     navigator.clipboard.writeText(msg.content).catch(() => {});
     toast.success("Message copied");
   };
-  const handleForward = () => {
-    toast.success("Message forwarded");
+  const handleForward = (msg: ChatMessage) => {
+    setForwardMsg(msg);
+    setShowForwardSheet(true);
   };
   const handleDelete = (msg: ChatMessage) => {
     setLocalMessages((prev) => prev.filter((m) => m.id !== msg.id));
@@ -916,8 +1016,33 @@ export default function ChatViewScreen({
 
   const wallpaperClass = getWallpaperClass(wallpaper);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
+    touchStartRef.current = null;
+    if (Math.abs(dx) > Math.abs(dy) && dx > 80) {
+      onBack();
+      return;
+    }
+    if (dy > 80 && Math.abs(dy) > Math.abs(dx)) {
+      onBack();
+      return;
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full animate-slide-up">
+    <div
+      className="flex flex-col h-full animate-slide-up"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Sticky Chat header */}
       <header className="sticky top-0 z-50 bg-wa-header flex flex-col flex-shrink-0">
         <div
@@ -953,11 +1078,20 @@ export default function ChatViewScreen({
               />
             )}
             <div className="min-w-0">
-              <p className="text-wa-header-fg font-semibold text-[15px] truncate font-display">
+              <p
+                className="text-wa-header-fg font-semibold text-[15px] truncate font-display"
+                style={{ marginTop: "0.5px" }}
+              >
                 {contactName}
               </p>
               <p className="text-wa-header-fg/60 text-[11px]">
-                {isGroupChat ? "4 members" : "Online"}
+                {isGroupChat
+                  ? showTyping
+                    ? "typing..."
+                    : "4 members online"
+                  : showTyping
+                    ? "typing..."
+                    : "online"}
               </p>
             </div>
           </button>
@@ -1161,12 +1295,52 @@ export default function ChatViewScreen({
         )}
       </header>
 
+      {/* Pinned message banner */}
+      {pinnedMessage && !pinnedDismissed && (
+        <button
+          type="button"
+          data-ocid="chat.pinned.panel"
+          className="flex items-center gap-2 px-3 py-2 bg-wa-green/10 border-b border-wa-green/20 cursor-pointer w-full text-left"
+          onClick={() => {
+            const el = document.getElementById(`msg-${pinnedMessage.id}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        >
+          <div className="w-0.5 h-8 bg-wa-green rounded-full flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-semibold text-wa-green">
+              📌 Pinned Message
+            </p>
+            <p className="text-[12px] text-foreground truncate">
+              {pinnedMessage.content}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-ocid="chat.pinned.close_button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setPinnedDismissed(true);
+            }}
+            className="p-1 text-muted-foreground hover:text-foreground"
+            aria-label="Dismiss pinned"
+          >
+            ✕
+          </button>
+        </button>
+      )}
+
       {/* Message area — smooth scrolling */}
       <main
         className={`flex-1 overflow-y-auto scroll-smooth px-3 py-3 relative ${wallpaperClass}`}
-        style={{ WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+        style={
+          {
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
+          } as React.CSSProperties
+        }
       >
-        {messagesLoading && (
+        {(messagesLoading || skeletonLoading) && (
           <div data-ocid="chat.loading_state" className="space-y-3">
             {[1, 2, 3, 4, 5].map((n) => (
               <div
@@ -1174,7 +1348,7 @@ export default function ChatViewScreen({
                 className={`flex ${n % 2 === 0 ? "justify-start" : "justify-end"}`}
               >
                 <Skeleton
-                  className={`h-10 rounded-2xl ${n % 2 === 0 ? "w-48" : "w-36"}`}
+                  className={`rounded-2xl ${n % 2 === 0 ? "h-12 w-52" : "h-10 w-40"}`}
                 />
               </div>
             ))}
@@ -1182,6 +1356,7 @@ export default function ChatViewScreen({
         )}
 
         {!messagesLoading &&
+          !skeletonLoading &&
           hasRealMessages &&
           (messages ?? []).map((msg) => (
             <div
@@ -1200,6 +1375,7 @@ export default function ChatViewScreen({
           ))}
 
         {!messagesLoading &&
+          !skeletonLoading &&
           !hasRealMessages &&
           groupedMessages.map((group) => (
             <div key={group.dateLabel}>
@@ -1313,24 +1489,38 @@ export default function ChatViewScreen({
 
       {/* Recording state */}
       {isRecording && (
-        <div className="flex items-center gap-3 px-4 py-3 bg-card border-t border-border sticky bottom-0 z-10">
-          <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-          <span className="text-[13px] text-red-500 font-medium">
-            Recording...
-          </span>
-          <span className="text-[13px] text-muted-foreground font-mono">
-            {formatRecordingTime(recordingSeconds)}
-          </span>
-          <div className="flex-1">
-            <VoiceWaveform isRecording />
+        <div className="flex items-center gap-2 px-3 py-3 bg-card border-t border-border sticky bottom-0 z-10">
+          <button
+            type="button"
+            onClick={() => {
+              setIsRecording(false);
+              if (recordingTimerRef.current)
+                clearInterval(recordingTimerRef.current);
+              setRecordingSeconds(0);
+            }}
+            className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-full hover:bg-muted"
+            aria-label="Cancel recording"
+            data-ocid="chat.record.cancel_button"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+            <span className="text-[13px] text-red-500 font-mono font-medium">
+              {formatRecordingTime(recordingSeconds)}
+            </span>
+            <div className="flex-1">
+              <VoiceWaveform isRecording />
+            </div>
           </div>
           <button
             type="button"
             onClick={stopRecording}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-            aria-label="Cancel recording"
+            className="w-10 h-10 rounded-full bg-wa-green flex items-center justify-center hover:brightness-105 active:brightness-95 transition-all"
+            aria-label="Send voice message"
+            data-ocid="chat.record.send_button"
           >
-            <X className="w-5 h-5" />
+            <Send className="w-5 h-5 text-white" />
           </button>
         </div>
       )}
@@ -1610,7 +1800,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.contact.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  setShowShareContactSheet(true);
+                  setShowContactShareModal(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1626,7 +1816,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.poll.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  setShowPollSheet(true);
+                  setShowPollCreation(true);
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -1714,11 +1904,52 @@ export default function ChatViewScreen({
           onClose={() => setContextMsg(null)}
           onReply={handleReply}
           onCopy={handleCopy}
-          onForward={handleForward}
+          onForward={(msg) => handleForward(msg)}
           onDelete={handleDelete}
           onReact={handleReact}
+          onPin={(msg) => {
+            setPinnedMessage(msg);
+            setPinnedDismissed(false);
+            setContextMsg(null);
+            toast.success("Message pinned");
+          }}
         />
       )}
+
+      {/* Forward message sheet */}
+      <ForwardMessageSheet
+        open={showForwardSheet}
+        messageContent={forwardMsg?.content ?? ""}
+        onClose={() => {
+          setShowForwardSheet(false);
+          setForwardMsg(null);
+        }}
+        onForward={() => {
+          setShowForwardSheet(false);
+          setForwardMsg(null);
+        }}
+      />
+
+      {/* Poll creation modal */}
+      <PollCreationModal
+        open={showPollCreation}
+        onClose={() => setShowPollCreation(false)}
+        onCreatePoll={(question, options) => {
+          const pollText = `📊 Poll: ${question}\n${options.map((o, i) => `${i + 1}. ${o}`).join("\n")}`;
+          sendMsg(pollText);
+          setShowPollCreation(false);
+        }}
+      />
+
+      {/* Contact share modal */}
+      <ContactShareModal
+        open={showContactShareModal}
+        onClose={() => setShowContactShareModal(false)}
+        onShare={(contact) => {
+          sendMsg(`👤 Contact: ${contact.name}\n📞 ${contact.phone}`);
+          setShowContactShareModal(false);
+        }}
+      />
 
       {/* Schedule Message Modal */}
       <ScheduleMessageModal
@@ -1821,8 +2052,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* Disappearing Messages Sheet */}
       <Sheet
         open={showDisappearingSheet}
         onOpenChange={setShowDisappearingSheet}
@@ -1885,8 +2114,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* Export Chat Dialog */}
       <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <AlertDialogContent
           data-ocid="chat.export.dialog"
@@ -1928,8 +2155,6 @@ export default function ChatViewScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Report Dialog */}
       <AlertDialog open={showReportDialog} onOpenChange={setShowReportDialog}>
         <AlertDialogContent
           data-ocid="chat.report.dialog"
@@ -1959,8 +2184,6 @@ export default function ChatViewScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Block Dialog */}
       <AlertDialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
         <AlertDialogContent
           data-ocid="chat.block.dialog"
@@ -1990,8 +2213,6 @@ export default function ChatViewScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Business Catalogue Sheet */}
       <Sheet open={showCatalogueSheet} onOpenChange={setShowCatalogueSheet}>
         <SheetContent
           side="bottom"
@@ -2021,8 +2242,6 @@ export default function ChatViewScreen({
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* Quick Replies Sheet */}
       <Sheet
         open={showQuickRepliesSheet}
         onOpenChange={setShowQuickRepliesSheet}
@@ -2060,8 +2279,6 @@ export default function ChatViewScreen({
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* Location Sheet */}
       <Sheet open={showLocationSheet} onOpenChange={setShowLocationSheet}>
         <SheetContent
           side="bottom"
@@ -2107,8 +2324,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* Share Contact Sheet */}
       <Sheet
         open={showShareContactSheet}
         onOpenChange={setShowShareContactSheet}
@@ -2163,8 +2378,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* Create Poll Sheet */}
       <Sheet open={showPollSheet} onOpenChange={setShowPollSheet}>
         <SheetContent
           side="bottom"
@@ -2245,8 +2458,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* Create Event Sheet */}
       <Sheet open={showEventSheet} onOpenChange={setShowEventSheet}>
         <SheetContent
           side="bottom"
@@ -2331,8 +2542,6 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
-
-      {/* UPI QR Sheet */}
       <Sheet open={showUPISheet} onOpenChange={setShowUPISheet}>
         <SheetContent
           side="bottom"

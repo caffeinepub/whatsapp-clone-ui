@@ -113,7 +113,10 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
       {/* Sticky header */}
       <header
         className="sticky top-0 z-50 bg-wa-header px-4 pb-3 flex-shrink-0"
-        style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
+        style={{
+          paddingTop: "max(env(safe-area-inset-top, 0px), 44px)",
+          overscrollBehavior: "contain",
+        }}
       >
         <div className="flex items-center justify-between">
           <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
@@ -178,7 +181,13 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-card">
+      <main
+        className="flex-1 overflow-y-auto bg-card"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+        }}
+      >
         <div className="px-4 py-3 border-b border-border">
           <button
             type="button"

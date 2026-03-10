@@ -4,16 +4,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Archive,
+  ArrowLeft,
   Camera,
+  ChevronDown,
+  ChevronRight,
+  Lock,
   MoreVertical,
   Pencil,
   Pin,
+  QrCode,
   Search,
+  Sparkles,
+  UserPlus,
   VolumeX,
 } from "lucide-react";
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 import type { Contact, Conversation } from "../backend.d";
 import CameraModal from "../components/CameraModal";
 import ChatLongPressSheet from "../components/ChatLongPressSheet";
@@ -239,9 +249,19 @@ export default function ChatListScreen({
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [longPressItem, setLongPressItem] =
     useState<SeedConversationItem | null>(null);
+  const [avatarSheetItem, setAvatarSheetItem] = useState<{
+    name: string;
+    initials: string;
+    colorIndex: number;
+    id: bigint;
+  } | null>(null);
+  const [qrScanning, setQrScanning] = useState(false);
   const [chatStates, setChatStates] = useState<
     Record<string, { isPinned: boolean; isMuted: boolean; isUnread: boolean }>
   >({});
+  const [archivedIds, setArchivedIds] = useState<Set<string>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
+  const [lockedIds] = useState<Set<string>>(new Set(["3", "4"])); // Marcus and Priya are locked
 
   const { data: conversations, isLoading: convsLoading } = useConversations();
   const { data: contacts, isLoading: contactsLoading } = useContacts();
@@ -268,6 +288,7 @@ export default function ChatListScreen({
   ];
 
   const filteredSeedConversations = allSeedConversations.filter((item) => {
+    if (archivedIds.has(item.id.toString())) return false;
     const state = getChatState(item.id.toString());
     const nameMatch = item.contactName
       .toLowerCase()
@@ -421,11 +442,115 @@ export default function ChatListScreen({
         </div>
       </div>
 
+      {/* Ask Meta AI gradient bar — Chats tab only */}
+      <div
+        className="mx-3 my-2 rounded-xl overflow-hidden"
+        data-ocid="chatlist.meta-ai.button"
+      >
+        <button
+          type="button"
+          className="w-full flex items-center gap-3 px-4 py-3 text-left"
+          style={{
+            background:
+              "linear-gradient(135deg, #1a73e8 0%, #7b2ff7 50%, #e91e63 100%)",
+          }}
+        >
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-semibold text-white">Ask Meta AI</p>
+            <p className="text-[11px] text-white/70">Your AI assistant</p>
+          </div>
+        </button>
+      </div>
+
       {/* Conversations list */}
       <main
         className="flex-1 overflow-y-auto bg-card divide-y divide-border/60"
         aria-label="Conversations"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+        }}
       >
+        {/* Archived chats section */}
+        {archivedIds.size > 0 && (
+          <div className="border-b border-border/60">
+            <button
+              type="button"
+              data-ocid="chatlist.archived.toggle"
+              onClick={() => setShowArchived((v) => !v)}
+              className="flex items-center gap-3 w-full px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+                <Archive
+                  className="w-4 h-4 text-orange-500"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-[15px] text-foreground">
+                  Archived
+                </p>
+                <p className="text-[12px] text-muted-foreground">
+                  {archivedIds.size} chat{archivedIds.size > 1 ? "s" : ""}
+                </p>
+              </div>
+              {showArchived ? (
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              )}
+            </button>
+            {showArchived &&
+              allSeedConversations
+                .filter((c) => archivedIds.has(c.id.toString()))
+                .map((item, i) => (
+                  <button
+                    key={item.id.toString()}
+                    type="button"
+                    data-ocid={`chatlist.archived.item.${i + 1}`}
+                    onClick={() => onOpenChat(item.id)}
+                    className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/60 transition-colors text-left bg-muted/10"
+                  >
+                    <ContactAvatar
+                      initials={item.initials}
+                      size="md"
+                      colorIndex={i + 10}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-[14px] text-foreground truncate">
+                          {item.contactName}
+                        </span>
+                        <span className="text-[11px] text-wa-timestamp">
+                          {item.time}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-muted-foreground truncate">
+                        {item.lastMsg}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      data-ocid={`chatlist.unarchive.button.${i + 1}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setArchivedIds((prev) => {
+                          const s = new Set(prev);
+                          s.delete(item.id.toString());
+                          return s;
+                        });
+                      }}
+                      className="text-[10px] text-orange-500 border border-orange-500/30 rounded-lg px-2 py-1 hover:bg-orange-500/10 flex-shrink-0"
+                    >
+                      Unarchive
+                    </button>
+                  </button>
+                ))}
+          </div>
+        )}
         {isLoading && (
           <div data-ocid="chatlist.loading_state">
             {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -514,15 +639,33 @@ export default function ChatListScreen({
                 }}
                 className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/60 active:bg-muted transition-colors text-left"
               >
-                <ContactAvatar
-                  initials={item.initials}
-                  size="md"
-                  colorIndex={i}
-                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setAvatarSheetItem({
+                      name: item.contactName,
+                      initials: item.initials,
+                      colorIndex: i,
+                      id: item.id,
+                    });
+                  }}
+                  aria-label={`View ${item.contactName} profile`}
+                  className="flex-shrink-0"
+                >
+                  <ContactAvatar
+                    initials={item.initials}
+                    size="md"
+                    colorIndex={i}
+                  />
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-[15px] text-foreground truncate font-display">
+                    <span className="font-semibold text-[15px] text-foreground truncate font-display flex items-center gap-1">
                       {item.contactName}
+                      {lockedIds.has(item.id.toString()) && (
+                        <Lock className="w-3 h-3 text-muted-foreground/60 flex-shrink-0 inline" />
+                      )}
                     </span>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {isPinned && (
@@ -592,6 +735,87 @@ export default function ChatListScreen({
       {/* New Chat Screen */}
       <NewChatScreen open={newChatOpen} onClose={() => setNewChatOpen(false)} />
 
+      {/* Avatar Profile Sheet */}
+      <Sheet
+        open={!!avatarSheetItem}
+        onOpenChange={(o) => {
+          if (!o) {
+            setAvatarSheetItem(null);
+            setQrScanning(false);
+          }
+        }}
+      >
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl pb-safe"
+          data-ocid="chatlist.avatar.sheet"
+        >
+          {avatarSheetItem && (
+            <div className="flex flex-col items-center gap-4 pt-2 pb-6">
+              <div className="w-20 h-20">
+                <ContactAvatar
+                  initials={avatarSheetItem.initials}
+                  size="xl"
+                  colorIndex={avatarSheetItem.colorIndex}
+                />
+              </div>
+              <p className="text-[18px] font-bold text-foreground">
+                {avatarSheetItem.name}
+              </p>
+              {qrScanning ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="relative w-32 h-32">
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-wa-green rounded-tl-lg animate-pulse" />
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-wa-green rounded-tr-lg animate-pulse" />
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-wa-green rounded-bl-lg animate-pulse" />
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-wa-green rounded-br-lg animate-pulse" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <QrCode className="w-16 h-16 text-muted-foreground/40" />
+                    </div>
+                  </div>
+                  <p className="text-[13px] text-muted-foreground">
+                    Scanning...
+                  </p>
+                </div>
+              ) : (
+                <div className="flex gap-3 w-full px-4">
+                  <button
+                    type="button"
+                    data-ocid="chatlist.avatar.save_button"
+                    onClick={() => {
+                      toast.success(
+                        `${avatarSheetItem.name} saved to contacts`,
+                      );
+                      setAvatarSheetItem(null);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-wa-green/10 border border-wa-green/30 text-wa-green font-semibold text-[14px] hover:bg-wa-green/20 transition-colors"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    New Contact
+                  </button>
+                  <button
+                    type="button"
+                    data-ocid="chatlist.avatar.qr_button"
+                    onClick={() => {
+                      setQrScanning(true);
+                      setTimeout(() => {
+                        setQrScanning(false);
+                        setAvatarSheetItem(null);
+                        onOpenChat(avatarSheetItem.id);
+                      }, 2000);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-muted border border-border text-foreground font-semibold text-[14px] hover:bg-muted/80 transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    Scan QR
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+
       {/* Long Press Bottom Sheet */}
       {longPressItem && (
         <ChatLongPressSheet
@@ -610,7 +834,16 @@ export default function ChatListScreen({
             getChatState(longPressItem.id.toString()).isUnread
           }
           onClose={() => setLongPressItem(null)}
-          onArchive={() => setLongPressItem(null)}
+          onArchive={() => {
+            const id = longPressItem.id.toString();
+            setArchivedIds((prev) => {
+              const s = new Set(prev);
+              s.add(id);
+              return s;
+            });
+            setLongPressItem(null);
+            toast.success("Chat archived");
+          }}
           onMute={() => {
             const id = longPressItem.id.toString();
             setChatStates((prev) => ({

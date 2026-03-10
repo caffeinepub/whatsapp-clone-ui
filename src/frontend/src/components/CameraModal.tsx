@@ -1,4 +1,16 @@
-import { Camera, FlipHorizontal, Image, QrCode, X, ZapOff } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Crop,
+  FlipHorizontal,
+  Image,
+  QrCode,
+  Scissors,
+  Sticker,
+  Type,
+  X,
+  ZapOff,
+} from "lucide-react";
 import { useState } from "react";
 
 interface CameraModalProps {
@@ -8,8 +20,87 @@ interface CameraModalProps {
 
 export default function CameraModal({ open, onClose }: CameraModalProps) {
   const [mode, setMode] = useState<"camera" | "qr">("camera");
+  const [captureMode, setCaptureMode] = useState<"camera" | "preview">(
+    "camera",
+  );
+  const [activeEditTool, setActiveEditTool] = useState<string | null>(null);
 
   if (!open) return null;
+
+  if (captureMode === "preview") {
+    return (
+      <div
+        data-ocid="camera.preview.modal"
+        className="absolute inset-0 z-50 flex flex-col bg-black"
+      >
+        {/* Simulated captured photo */}
+        <div
+          className="flex-1 relative flex items-center justify-center"
+          style={{
+            background:
+              "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+          }}
+        >
+          <div className="text-center opacity-30">
+            <Camera className="w-20 h-20 text-white mx-auto" />
+            <p className="text-white text-sm mt-2">Photo captured</p>
+          </div>
+          {/* X discard */}
+          <button
+            type="button"
+            data-ocid="camera.preview.close_button"
+            onClick={() => setCaptureMode("camera")}
+            className="absolute top-4 left-4 p-2 bg-black/50 rounded-full text-white"
+            style={{ top: "max(env(safe-area-inset-top, 0px), 16px)" }}
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        {/* Edit tools */}
+        <div className="bg-black/80 px-6 py-4 flex items-center justify-between gap-4">
+          {[
+            { id: "sticker", label: "Sticker", icon: "🎭" },
+            { id: "text", label: "Text", icon: "✏️" },
+            { id: "crop", label: "Crop", icon: "✂️" },
+          ].map((tool) => (
+            <button
+              key={tool.id}
+              type="button"
+              data-ocid={`camera.edit.${tool.id}.button`}
+              onClick={() =>
+                setActiveEditTool(activeEditTool === tool.id ? null : tool.id)
+              }
+              className={`flex flex-col items-center gap-1 flex-1 py-2 rounded-xl transition-colors ${activeEditTool === tool.id ? "bg-white/20" : "bg-white/10"}`}
+            >
+              <span className="text-xl">{tool.icon}</span>
+              <span className="text-white text-[11px] font-medium">
+                {tool.label}
+              </span>
+            </button>
+          ))}
+        </div>
+        {/* Post button */}
+        <div
+          className="px-6 py-4 bg-black flex gap-3"
+          style={{
+            paddingBottom: "max(env(safe-area-inset-bottom, 0px), 16px)",
+          }}
+        >
+          <button
+            type="button"
+            data-ocid="camera.preview.post_button"
+            onClick={() => {
+              setCaptureMode("camera");
+              onClose();
+            }}
+            className="flex-1 bg-wa-green text-white font-bold py-3.5 rounded-full text-[15px] hover:brightness-105 active:brightness-95 transition-all"
+          >
+            Post
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -119,6 +210,7 @@ export default function CameraModal({ open, onClose }: CameraModalProps) {
           data-ocid="camera.shutter.button"
           className="w-16 h-16 rounded-full bg-white border-4 border-zinc-400 hover:scale-95 active:scale-90 transition-transform flex items-center justify-center"
           aria-label="Take photo"
+          onClick={() => setCaptureMode("preview")}
         >
           <div className="w-12 h-12 rounded-full bg-white" />
         </button>

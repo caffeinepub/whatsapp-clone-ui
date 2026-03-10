@@ -45,6 +45,8 @@ interface SettingsScreenProps {
   onWallpaperChange: (w: WallpaperType) => void;
   onOpenQRCode?: () => void;
   onLogout?: () => void;
+  onOpenStorage?: () => void;
+  onOpenChatLock?: () => void;
 }
 
 function SettingRow({
@@ -238,6 +240,8 @@ export default function SettingsScreen({
   onWallpaperChange,
   onOpenQRCode,
   onLogout,
+  onOpenStorage,
+  onOpenChatLock,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -290,7 +294,13 @@ export default function SettingsScreen({
         </h1>
       </header>
 
-      <main className="flex-1 overflow-y-auto bg-secondary/30">
+      <main
+        className="flex-1 overflow-y-auto bg-secondary/30"
+        style={{
+          WebkitOverflowScrolling: "touch",
+          overscrollBehavior: "contain",
+        }}
+      >
         {/* Profile row */}
         <div className="bg-card px-4 py-4 border-b border-border">
           <div className="flex items-center gap-4">
@@ -340,7 +350,13 @@ export default function SettingsScreen({
                     <button
                       type="button"
                       data-ocid={`settings.${item.id}.button`}
-                      onClick={() => setOpenPanel(item.id as PanelId)}
+                      onClick={() => {
+                        if (item.id === "storage" && onOpenStorage) {
+                          onOpenStorage();
+                        } else {
+                          setOpenPanel(item.id as PanelId);
+                        }
+                      }}
                       className="flex items-center gap-4 w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
                     >
                       <div
@@ -395,16 +411,12 @@ export default function SettingsScreen({
           </p>
         </div>
       </main>
-
-      {/* Profile edit panel */}
       <ProfileEditPanel
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         profile={userProfile}
         onSave={onUpdateProfile}
       />
-
-      {/* =================== ACCOUNT PANEL =================== */}
       <SettingsPanel
         title="Account"
         open={openPanel === "account"}
@@ -458,8 +470,6 @@ export default function SettingsScreen({
           </button>
         </div>
       </SettingsPanel>
-
-      {/* =================== PRIVACY PANEL =================== */}
       <SettingsPanel
         title="Privacy"
         open={openPanel === "privacy"}
@@ -556,7 +566,6 @@ export default function SettingsScreen({
           <SettingRow
             label="Read receipts"
             description="If turned off, you won't send or receive read receipts"
-            separator={false}
           >
             <Switch
               data-ocid="settings.privacy.receipts.switch"
@@ -564,6 +573,25 @@ export default function SettingsScreen({
               onCheckedChange={setReadReceipts}
             />
           </SettingRow>
+          <button
+            type="button"
+            data-ocid="settings.privacy.chatlock.button"
+            onClick={() => {
+              setOpenPanel(null);
+              onOpenChatLock?.();
+            }}
+            className="flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <div>
+              <p className="font-medium text-[15px] text-foreground">
+                Chat Lock
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                Lock individual chats with PIN
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
         </div>
         <div className="bg-card mt-3">
           <div className="px-4 py-2 border-b border-border">
@@ -578,8 +606,6 @@ export default function SettingsScreen({
           />
         </div>
       </SettingsPanel>
-
-      {/* =================== NOTIFICATIONS PANEL =================== */}
       <SettingsPanel
         title="Notifications"
         open={openPanel === "notifications"}
@@ -648,8 +674,6 @@ export default function SettingsScreen({
           </SettingRow>
         </div>
       </SettingsPanel>
-
-      {/* =================== STORAGE PANEL =================== */}
       <SettingsPanel
         title="Storage and Data"
         open={openPanel === "storage"}
@@ -707,8 +731,6 @@ export default function SettingsScreen({
           </button>
         </div>
       </SettingsPanel>
-
-      {/* =================== CHATS PANEL =================== */}
       <SettingsPanel
         title="Chats"
         open={openPanel === "chats"}
@@ -765,8 +787,6 @@ export default function SettingsScreen({
               </SelectContent>
             </Select>
           </SettingRow>
-
-          {/* Chat background inline */}
           <button
             type="button"
             onClick={() => setWallpaperOpen((p) => !p)}
@@ -779,36 +799,35 @@ export default function SettingsScreen({
               className={`w-4 h-4 text-muted-foreground transition-transform ${wallpaperOpen ? "rotate-90" : ""}`}
             />
           </button>
-
-          {wallpaperOpen && (
-            <div
-              data-ocid="settings.wallpaper.panel"
-              className="px-4 py-3 border-t border-border bg-secondary/20 animate-fade-in"
-            >
-              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Choose Background
-              </p>
-              <div className="grid grid-cols-4 gap-2">
-                {WALLPAPER_OPTIONS.map((opt, idx) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    data-ocid={`settings.wallpaper.item.${idx + 1}`}
-                    onClick={() => onWallpaperChange(opt.id)}
-                    className="flex flex-col items-center gap-1.5 group"
-                    aria-pressed={wallpaper === opt.id}
-                  >
-                    <div
-                      className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${wallpaper === opt.id ? `${opt.border} ring-2 ring-offset-1 ring-wa-green` : "border-border"}`}
-                    />
-                    <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
-                      {opt.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
+          wallpaperOpen && (
+          <div
+            data-ocid="settings.wallpaper.panel"
+            className="px-4 py-3 border-t border-border bg-secondary/20 animate-fade-in"
+          >
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              Choose Background
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {WALLPAPER_OPTIONS.map((opt, idx) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  data-ocid={`settings.wallpaper.item.${idx + 1}`}
+                  onClick={() => onWallpaperChange(opt.id)}
+                  className="flex flex-col items-center gap-1.5 group"
+                  aria-pressed={wallpaper === opt.id}
+                >
+                  <div
+                    className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${wallpaper === opt.id ? `${opt.border} ring-2 ring-offset-1 ring-wa-green` : "border-border"}`}
+                  />
+                  <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
+                    {opt.label}
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+          )
         </div>
 
         <div className="bg-card mt-3">
@@ -851,8 +870,6 @@ export default function SettingsScreen({
           </button>
         </div>
       </SettingsPanel>
-
-      {/* =================== APPEARANCE PANEL =================== */}
       <SettingsPanel
         title="Appearance"
         open={openPanel === "appearance"}
@@ -893,8 +910,6 @@ export default function SettingsScreen({
           </SettingRow>
         </div>
       </SettingsPanel>
-
-      {/* =================== LINKED DEVICES PANEL =================== */}
       <SettingsPanel
         title="Linked Devices"
         open={openPanel === "linked"}
@@ -924,8 +939,6 @@ export default function SettingsScreen({
           </button>
         </div>
       </SettingsPanel>
-
-      {/* =================== HELP PANEL =================== */}
       <SettingsPanel
         title="Help"
         open={openPanel === "help"}
@@ -941,8 +954,6 @@ export default function SettingsScreen({
           </SettingRow>
         </div>
       </SettingsPanel>
-
-      {/* Delete Account Confirmation */}
       <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
         <AlertDialogContent data-ocid="settings.delete_account.dialog">
           <AlertDialogHeader>
@@ -966,8 +977,6 @@ export default function SettingsScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Logout Confirmation */}
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <AlertDialogContent data-ocid="settings.logout.dialog">
           <AlertDialogHeader>
@@ -992,8 +1001,6 @@ export default function SettingsScreen({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Clear Cache Confirmation */}
       <AlertDialog open={clearCacheOpen} onOpenChange={setClearCacheOpen}>
         <AlertDialogContent data-ocid="settings.clear_cache.dialog">
           <AlertDialogHeader>

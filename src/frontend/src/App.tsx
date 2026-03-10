@@ -11,18 +11,27 @@ import StatusViewer from "./components/StatusViewer";
 import { useAppState } from "./hooks/useAppState";
 import CallsScreen from "./pages/CallsScreen";
 import ChatListScreen from "./pages/ChatListScreen";
+import ChatLockScreen from "./pages/ChatLockScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
 import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
 import LoginScreen from "./pages/LoginScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
 import OTPScreen from "./pages/OTPScreen";
+import PaymentsScreen from "./pages/PaymentsScreen";
 import ProfileCreationScreen from "./pages/ProfileCreationScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import SplashScreen from "./pages/SplashScreen";
 import StatusScreen from "./pages/StatusScreen";
+import StorageScreen from "./pages/StorageScreen";
 
-export type TabName = "chats" | "calls" | "status" | "communities" | "settings";
+export type TabName =
+  | "chats"
+  | "calls"
+  | "status"
+  | "communities"
+  | "payments"
+  | "settings";
 type AppView = "main" | "new-group" | "contacts";
 type AuthState = "splash" | "login" | "otp" | "profile" | "app";
 
@@ -91,6 +100,8 @@ export default function App() {
   const [starredOpen, setStarredOpen] = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [qrCodeOpen, setQrCodeOpen] = useState(false);
+  const [storageOpen, setStorageOpen] = useState(false);
+  const [chatLockOpen, setChatLockOpen] = useState(false);
   const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
 
   const appState = useAppState();
@@ -307,6 +318,7 @@ export default function App() {
               {activeTab === "communities" && (
                 <CommunitiesScreen onOpenChat={handleOpenChat} />
               )}
+              {activeTab === "payments" && <PaymentsScreen />}
               {activeTab === "calls" && (
                 <CallsScreen onOpenCall={appState.openCall} />
               )}
@@ -320,6 +332,8 @@ export default function App() {
                   onWallpaperChange={appState.setWallpaper}
                   onOpenQRCode={() => setQrCodeOpen(true)}
                   onLogout={handleLogout}
+                  onOpenStorage={() => setStorageOpen(true)}
+                  onOpenChatLock={() => setChatLockOpen(true)}
                 />
               )}
             </>
@@ -351,6 +365,12 @@ export default function App() {
               onBack={() => setQrCodeOpen(false)}
               userName={appState.userProfile.name}
             />
+          )}
+          {storageOpen && (
+            <StorageScreen onBack={() => setStorageOpen(false)} />
+          )}
+          {chatLockOpen && (
+            <ChatLockScreen onBack={() => setChatLockOpen(false)} />
           )}
           {mediaGalleryFor !== null && (
             <MediaGalleryScreen

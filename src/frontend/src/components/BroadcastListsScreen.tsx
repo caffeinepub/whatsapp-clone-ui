@@ -28,15 +28,43 @@ export default function BroadcastListsScreen({
   onBack,
 }: BroadcastListsScreenProps) {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [newBroadcastName, setNewBroadcastName] = useState("");
+  const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [broadcasts, setBroadcasts] = useState(SAMPLE_BROADCASTS);
+
+  const STEP2_CONTACTS = [
+    "Alice Johnson",
+    "Bob Smith",
+    "Carol White",
+    "David Brown",
+    "Emma Davis",
+    "Frank Miller",
+    "Grace Wilson",
+    "Henry Taylor",
+    "Iris Anderson",
+    "Jack Thomas",
+  ];
+
+  const toggleContact = (name: string) => {
+    setSelectedContacts((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  };
+
+  const openCreateSheet = () => {
+    setCreateStep(1);
+    setNewBroadcastName("");
+    setSelectedContacts([]);
+    setShowCreateSheet(true);
+  };
 
   const handleCreate = () => {
     if (!newBroadcastName.trim()) return;
     setBroadcasts((prev) => [
       {
         name: newBroadcastName.trim(),
-        recipients: 0,
+        recipients: selectedContacts.length,
         lastMessage: "No messages yet",
         time: "Now",
         colorIndex: 2,
@@ -45,6 +73,7 @@ export default function BroadcastListsScreen({
       ...prev,
     ]);
     setNewBroadcastName("");
+    setSelectedContacts([]);
     setShowCreateSheet(false);
   };
 
@@ -79,7 +108,7 @@ export default function BroadcastListsScreen({
           <button
             type="button"
             data-ocid="broadcast.new.button"
-            onClick={() => setShowCreateSheet(true)}
+            onClick={() => openCreateSheet()}
             className="w-full bg-wa-green text-white font-semibold py-3.5 rounded-2xl flex items-center justify-center gap-2 hover:brightness-105 active:brightness-95 transition-all shadow-sm"
           >
             <Megaphone className="w-5 h-5" />
@@ -133,7 +162,7 @@ export default function BroadcastListsScreen({
         </div>
       </main>
 
-      {/* Create broadcast sheet */}
+      {/* Create broadcast sheet - 2-step */}
       {showCreateSheet && (
         <>
           <div
@@ -149,40 +178,109 @@ export default function BroadcastListsScreen({
             className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl shadow-2xl animate-slide-up p-4"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
           >
-            <div className="flex justify-center pt-1 pb-3">
+            <div className="flex justify-center pt-1 pb-2">
               <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
             </div>
-            <h3 className="text-[17px] font-bold text-foreground mb-4 font-display">
-              New broadcast list
-            </h3>
-            <input
-              data-ocid="broadcast.create.input"
-              type="text"
-              value={newBroadcastName}
-              onChange={(e) => setNewBroadcastName(e.target.value)}
-              placeholder="Broadcast list name"
-              className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground outline-none focus:border-wa-green transition-colors"
-              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                type="button"
-                data-ocid="broadcast.create.cancel_button"
-                onClick={() => setShowCreateSheet(false)}
-                className="flex-1 py-3 rounded-xl border border-border text-[15px] font-semibold text-foreground hover:bg-muted/60 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                data-ocid="broadcast.create.confirm_button"
-                onClick={handleCreate}
-                disabled={!newBroadcastName.trim()}
-                className="flex-1 py-3 rounded-xl bg-wa-green text-white text-[15px] font-semibold hover:brightness-105 disabled:opacity-50 transition-all"
-              >
-                Create
-              </button>
+            {/* Step indicator */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[17px] font-bold text-foreground font-display">
+                {createStep === 1 ? "New broadcast list" : "Add recipients"}
+              </h3>
+              <span className="text-[12px] text-muted-foreground font-medium">
+                {createStep}/2
+              </span>
             </div>
+            {createStep === 1 ? (
+              <>
+                <input
+                  data-ocid="broadcast.create.input"
+                  type="text"
+                  value={newBroadcastName}
+                  onChange={(e) => setNewBroadcastName(e.target.value)}
+                  placeholder="Broadcast list name"
+                  className="w-full bg-background border border-border rounded-xl px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground outline-none focus:border-wa-green transition-colors"
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    newBroadcastName.trim() &&
+                    setCreateStep(2)
+                  }
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    type="button"
+                    data-ocid="broadcast.create.cancel_button"
+                    onClick={() => setShowCreateSheet(false)}
+                    className="flex-1 py-3 rounded-xl border border-border text-[15px] font-semibold text-foreground hover:bg-muted/60 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    data-ocid="broadcast.step1.next_button"
+                    onClick={() => setCreateStep(2)}
+                    disabled={!newBroadcastName.trim()}
+                    className="flex-1 py-3 rounded-xl bg-wa-green text-white text-[15px] font-semibold hover:brightness-105 disabled:opacity-50 transition-all"
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[12px] text-muted-foreground mb-3">
+                  {selectedContacts.length} selected
+                </p>
+                <ul className="max-h-64 overflow-y-auto divide-y divide-border/40 border border-border rounded-xl mb-4">
+                  {STEP2_CONTACTS.map((name, i) => (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        data-ocid={`broadcast.contact.${i + 1}.toggle`}
+                        onClick={() => toggleContact(name)}
+                        className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-wa-green/20 flex items-center justify-center flex-shrink-0">
+                          <span className="text-[11px] font-bold text-wa-green">
+                            {name
+                              .split(" ")
+                              .map((p) => p[0])
+                              .join("")}
+                          </span>
+                        </div>
+                        <span className="flex-1 text-[14px] text-foreground">
+                          {name}
+                        </span>
+                        <div
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${selectedContacts.includes(name) ? "bg-wa-green border-wa-green" : "border-border"}`}
+                        >
+                          {selectedContacts.includes(name) && (
+                            <span className="text-white text-[10px]">✓</span>
+                          )}
+                        </div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    data-ocid="broadcast.step2.back_button"
+                    onClick={() => setCreateStep(1)}
+                    className="flex-1 py-3 rounded-xl border border-border text-[15px] font-semibold text-foreground hover:bg-muted/60 transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    data-ocid="broadcast.create.confirm_button"
+                    onClick={handleCreate}
+                    className="flex-1 py-3 rounded-xl bg-wa-green text-white text-[15px] font-semibold hover:brightness-105 transition-all"
+                  >
+                    Create broadcast
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
