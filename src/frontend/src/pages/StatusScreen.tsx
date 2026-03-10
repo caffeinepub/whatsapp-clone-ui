@@ -100,6 +100,22 @@ export default function StatusScreen({
     { name: "Mumbai Local Updates", subs: "45K subscribers" },
   ]);
 
+  const [highlights, setHighlights] = useState<
+    { id: string; label: string; colorIndex: number }[]
+  >(() => {
+    const saved = localStorage.getItem("wa_status_highlights");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const addHighlight = (label: string, colorIndex: number) => {
+    const updated = [
+      ...highlights,
+      { id: Date.now().toString(), label, colorIndex },
+    ];
+    setHighlights(updated);
+    localStorage.setItem("wa_status_highlights", JSON.stringify(updated));
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Sticky header */}
@@ -246,6 +262,57 @@ export default function StatusScreen({
           )}
         </div>
 
+        {/* Stage 17: Status Highlights */}
+        <div className="px-4 pt-3 pb-3 border-b border-border">
+          <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            Highlights
+          </p>
+          <div className="flex gap-3 overflow-x-auto pb-1">
+            <button
+              type="button"
+              data-ocid="status.highlight.add.button"
+              onClick={() => {
+                const labels = ["Memories", "Travel", "Food", "Work", "Fun"];
+                const colors = [0, 1, 2, 3, 4, 5];
+                addHighlight(
+                  labels[highlights.length % labels.length],
+                  colors[highlights.length % colors.length],
+                );
+              }}
+              className="flex flex-col items-center gap-1 flex-shrink-0"
+              aria-label="Add highlight"
+            >
+              <div className="w-14 h-14 rounded-full border-2 border-dashed border-border flex items-center justify-center">
+                <span className="text-muted-foreground text-2xl leading-none">
+                  +
+                </span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">Add</span>
+            </button>
+            {highlights.map((h, idx) => (
+              <button
+                key={h.id}
+                type="button"
+                data-ocid={`status.highlight.item.${idx + 1}`}
+                className="flex flex-col items-center gap-1 flex-shrink-0"
+                onClick={() => toast.success(`Opening ${h.label} highlight`)}
+              >
+                <div className="w-14 h-14 rounded-full border-2 border-wa-green flex items-center justify-center bg-wa-green/10">
+                  <span className="text-2xl">⭐</span>
+                </div>
+                <span className="text-[10px] text-foreground truncate max-w-[56px]">
+                  {h.label}
+                </span>
+              </button>
+            ))}
+            {highlights.length === 0 && (
+              <p className="text-[12px] text-muted-foreground self-center">
+                Save status updates as highlights
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Recent Updates */}
         <div className="px-4 py-3">
           <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
@@ -283,11 +350,56 @@ export default function StatusScreen({
         </div>
 
         {/* Channels */}
+        {channels.length === 0 && (
+          <div className="px-4 py-3 border-t border-border">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Channels
+              </p>
+              <button
+                type="button"
+                data-ocid="status.create_channel.open_modal_button"
+                onClick={() => setShowCreateChannelSheet(true)}
+                className="text-[12px] font-semibold text-wa-green hover:text-green-600 transition-colors"
+              >
+                + New channel
+              </button>
+            </div>
+            <button
+              type="button"
+              data-ocid="status.explore_channels.button"
+              onClick={() => setShowCreateChannelSheet(true)}
+              className="w-full flex items-center gap-3 py-2 px-2 hover:bg-muted/40 rounded-xl transition-colors"
+            >
+              <div className="w-11 h-11 bg-wa-green/10 rounded-full flex items-center justify-center">
+                <span className="text-[18px]">📢</span>
+              </div>
+              <div className="text-left">
+                <p className="font-semibold text-[14px] text-foreground">
+                  Create a channel
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Share updates with your audience
+                </p>
+              </div>
+            </button>
+          </div>
+        )}
         {channels.length > 0 && (
           <div className="px-4 py-3 border-t border-border">
-            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Channels
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Channels
+              </p>
+              <button
+                type="button"
+                data-ocid="status.create_channel.open_modal_button"
+                onClick={() => setShowCreateChannelSheet(true)}
+                className="text-[12px] font-semibold text-wa-green hover:text-green-600 transition-colors"
+              >
+                + New channel
+              </button>
+            </div>
             <div className="space-y-1">
               {channels.map((ch, i) => (
                 <div

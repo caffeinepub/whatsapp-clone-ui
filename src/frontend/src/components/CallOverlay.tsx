@@ -44,6 +44,40 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
     };
   }, []);
 
+  // Ringing tone using Web Audio API
+  useEffect(() => {
+    if (callState !== "ringing" && callState !== "connecting") return;
+    let ctx: AudioContext | null = null;
+    let stopped = false;
+    const playRing = async () => {
+      try {
+        ctx = new AudioContext();
+        const ring = async () => {
+          if (stopped || !ctx) return;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = "sine";
+          osc.frequency.value = 440;
+          gain.gain.value = 0.15;
+          osc.start();
+          await new Promise((r) => setTimeout(r, 1000));
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+          osc.stop(ctx.currentTime + 0.1);
+          if (!stopped) await new Promise((r) => setTimeout(r, 2000));
+          if (!stopped) ring();
+        };
+        ring();
+      } catch {}
+    };
+    playRing();
+    return () => {
+      stopped = true;
+      ctx?.close();
+    };
+  }, [callState]);
+
   // Start timer when connected
   useEffect(() => {
     if (callState !== "connected") return;

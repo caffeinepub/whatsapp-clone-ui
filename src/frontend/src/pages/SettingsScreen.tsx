@@ -47,6 +47,12 @@ interface SettingsScreenProps {
   onLogout?: () => void;
   onOpenStorage?: () => void;
   onOpenChatLock?: () => void;
+  onOpenQuickReplies?: () => void;
+  onOpenTwoStep?: () => void;
+  onOpenLinkedDevices?: () => void;
+  onOpenBusiness?: () => void;
+  onOpenAppLock?: () => void;
+  onOpenBlockedContacts?: () => void;
 }
 
 function SettingRow({
@@ -242,13 +248,18 @@ export default function SettingsScreen({
   onLogout,
   onOpenStorage,
   onOpenChatLock,
+  onOpenQuickReplies,
+  onOpenTwoStep,
+  onOpenLinkedDevices,
+  onOpenBusiness,
+  onOpenAppLock: _onOpenAppLock,
+  onOpenBlockedContacts,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const [wallpaperOpen, setWallpaperOpen] = useState(false);
 
   // Account state
-  const [twoStep, setTwoStep] = useState(false);
   const [passkeys, setPasskeys] = useState(false);
   const [securityNotifs, setSecurityNotifs] = useState(true);
 
@@ -273,6 +284,18 @@ export default function SettingsScreen({
   const [enterIsSend, setEnterIsSend] = useState(false);
   const [mediaVisibility, setMediaVisibility] = useState(true);
   const [keepArchived, setKeepArchived] = useState(true);
+
+  // App lock state
+  const [appLockEnabled, setAppLockEnabled] = useState(() => {
+    return localStorage.getItem("wa_app_lock_enabled") === "1";
+  });
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [setupPin, setSetupPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [pinStep, setPinStep] = useState<"enter" | "confirm">("enter");
+
+  // Profile QR state
+  const [showProfileQR, setShowProfileQR] = useState(false);
 
   // Appearance state
   const [appearFontSize, setAppearFontSize] = useState("medium");
@@ -353,6 +376,13 @@ export default function SettingsScreen({
                       onClick={() => {
                         if (item.id === "storage" && onOpenStorage) {
                           onOpenStorage();
+                        } else if (
+                          item.id === "linked" &&
+                          onOpenLinkedDevices
+                        ) {
+                          onOpenLinkedDevices();
+                        } else if (item.id === "business" && onOpenBusiness) {
+                          onOpenBusiness();
                         } else {
                           setOpenPanel(item.id as PanelId);
                         }
@@ -398,17 +428,7 @@ export default function SettingsScreen({
 
         {/* Footer */}
         <div className="py-6 flex flex-col items-center gap-1">
-          <p className="text-[12px] text-muted-foreground">
-            © {new Date().getFullYear()}.{" "}
-            <a
-              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-wa-green hover:underline"
-            >
-              Built with love using caffeine.ai
-            </a>
-          </p>
+          <p className="text-[12px] text-muted-foreground">© 2026 Meta</p>
         </div>
       </main>
       <ProfileEditPanel
@@ -444,17 +464,13 @@ export default function SettingsScreen({
             />
           </SettingRow>
           <SettingButton label="Email address" value="Not set" />
-          <SettingRow
+          <SettingButton
             label="Two-step verification"
-            description="Add a PIN for extra security"
-          >
-            <Switch
-              checked={twoStep}
-              onCheckedChange={setTwoStep}
-              data-ocid="settings.account.twostep.switch"
-            />
-          </SettingRow>
+            value="Set up PIN"
+            onClick={onOpenTwoStep}
+          />
           <SettingButton label="Business Platform" />
+          <SettingButton label="Quick Replies" onClick={onOpenQuickReplies} />
           <SettingButton label="Change phone number" />
           <SettingButton label="Request account info" />
           <SettingButton label="Add account" separator={false} />
@@ -592,6 +608,147 @@ export default function SettingsScreen({
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
+          <Separator className="ml-4" />
+          <button
+            type="button"
+            data-ocid="settings.privacy.blocked.button"
+            onClick={() => {
+              setOpenPanel(null);
+              onOpenBlockedContacts?.();
+            }}
+            className="flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <div>
+              <p className="font-medium text-[15px] text-foreground">
+                Blocked Contacts
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                Manage blocked contacts
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <Separator className="ml-4" />
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <p className="font-medium text-[15px] text-foreground">
+                App Lock
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                {appLockEnabled
+                  ? "PIN set — tap to change"
+                  : "Lock app with PIN"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                data-ocid="settings.privacy.applock.switch"
+                checked={appLockEnabled}
+                onCheckedChange={(v) => {
+                  if (v) {
+                    setShowPinSetup(true);
+                    setPinStep("enter");
+                    setSetupPin("");
+                    setConfirmPin("");
+                  } else {
+                    setAppLockEnabled(false);
+                    localStorage.removeItem("wa_app_lock_enabled");
+                    localStorage.removeItem("wa_app_lock_pin");
+                  }
+                }}
+              />
+            </div>
+          </div>
+          {showPinSetup && (
+            <div
+              data-ocid="settings.applock.setup.panel"
+              className="px-4 py-3 bg-muted/30 border-t border-border"
+            >
+              <p className="text-[13px] font-semibold text-foreground mb-3">
+                {pinStep === "enter" ? "Set a 4-digit PIN" : "Confirm your PIN"}
+              </p>
+              <div className="flex gap-3 mb-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed PIN dot display
+                    key={i}
+                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                      i < (pinStep === "enter" ? setupPin : confirmPin).length
+                        ? "bg-wa-green border-wa-green"
+                        : "border-border"
+                    }`}
+                  />
+                ))}
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {[
+                  "1",
+                  "2",
+                  "3",
+                  "4",
+                  "5",
+                  "6",
+                  "7",
+                  "8",
+                  "9",
+                  "",
+                  "0",
+                  "⌫",
+                ].map((k, i) => (
+                  <button
+                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed keypad
+                    key={i}
+                    type="button"
+                    data-ocid="settings.applock.pin.button"
+                    disabled={!k}
+                    onClick={() => {
+                      if (!k) return;
+                      if (k === "⌫") {
+                        if (pinStep === "enter")
+                          setSetupPin((p) => p.slice(0, -1));
+                        else setConfirmPin((p) => p.slice(0, -1));
+                        return;
+                      }
+                      if (pinStep === "enter") {
+                        const np = setupPin + k;
+                        setSetupPin(np);
+                        if (np.length === 4) setPinStep("confirm");
+                      } else {
+                        const np = confirmPin + k;
+                        setConfirmPin(np);
+                        if (np.length === 4) {
+                          if (np === setupPin) {
+                            localStorage.setItem("wa_app_lock_pin", np);
+                            localStorage.setItem("wa_app_lock_enabled", "1");
+                            setAppLockEnabled(true);
+                            setShowPinSetup(false);
+                            setSetupPin("");
+                            setConfirmPin("");
+                            setPinStep("enter");
+                          } else {
+                            setConfirmPin("");
+                            setPinStep("enter");
+                            setSetupPin("");
+                          }
+                        }
+                      }
+                    }}
+                    className="h-10 rounded-xl bg-muted hover:bg-muted/70 transition-colors text-[16px] font-semibold disabled:opacity-0"
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                data-ocid="settings.applock.cancel_button"
+                onClick={() => setShowPinSetup(false)}
+                className="text-[13px] text-muted-foreground hover:text-foreground w-full text-center py-1"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
         <div className="bg-card mt-3">
           <div className="px-4 py-2 border-b border-border">
@@ -799,35 +956,35 @@ export default function SettingsScreen({
               className={`w-4 h-4 text-muted-foreground transition-transform ${wallpaperOpen ? "rotate-90" : ""}`}
             />
           </button>
-          wallpaperOpen && (
-          <div
-            data-ocid="settings.wallpaper.panel"
-            className="px-4 py-3 border-t border-border bg-secondary/20 animate-fade-in"
-          >
-            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Choose Background
-            </p>
-            <div className="grid grid-cols-4 gap-2">
-              {WALLPAPER_OPTIONS.map((opt, idx) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  data-ocid={`settings.wallpaper.item.${idx + 1}`}
-                  onClick={() => onWallpaperChange(opt.id)}
-                  className="flex flex-col items-center gap-1.5 group"
-                  aria-pressed={wallpaper === opt.id}
-                >
-                  <div
-                    className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${wallpaper === opt.id ? `${opt.border} ring-2 ring-offset-1 ring-wa-green` : "border-border"}`}
-                  />
-                  <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
-                    {opt.label}
-                  </span>
-                </button>
-              ))}
+          {wallpaperOpen && (
+            <div
+              data-ocid="settings.wallpaper.panel"
+              className="px-4 py-3 border-t border-border bg-secondary/20 animate-fade-in"
+            >
+              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Choose Background
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {WALLPAPER_OPTIONS.map((opt, idx) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    data-ocid={`settings.wallpaper.item.${idx + 1}`}
+                    onClick={() => onWallpaperChange(opt.id)}
+                    className="flex flex-col items-center gap-1.5 group"
+                    aria-pressed={wallpaper === opt.id}
+                  >
+                    <div
+                      className={`w-full aspect-square rounded-xl ${opt.bg} border-2 transition-all ${wallpaper === opt.id ? `${opt.border} ring-2 ring-offset-1 ring-wa-green` : "border-border"}`}
+                    />
+                    <span className="text-[10px] text-center text-muted-foreground font-medium leading-tight">
+                      {opt.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          )
+          )}
         </div>
 
         <div className="bg-card mt-3">
@@ -954,6 +1111,89 @@ export default function SettingsScreen({
           </SettingRow>
         </div>
       </SettingsPanel>
+      {/* Profile QR Code screen */}
+      {showProfileQR && (
+        <div
+          data-ocid="settings.qr.modal"
+          className="absolute inset-0 z-50 flex flex-col bg-[#0b141a] items-center justify-center"
+        >
+          <div className="flex flex-col items-center gap-6 px-8 w-full max-w-[320px]">
+            {/* Close */}
+            <div className="w-full flex justify-between items-center">
+              <button
+                type="button"
+                data-ocid="settings.qr.close_button"
+                onClick={() => setShowProfileQR(false)}
+                className="text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10"
+                aria-label="Close"
+              >
+                <span className="text-[20px]">✕</span>
+              </button>
+              <p className="text-white font-bold text-[16px]">My QR Code</p>
+              <div className="w-10" />
+            </div>
+            {/* QR grid */}
+            <div className="relative w-56 h-56 bg-white rounded-2xl p-3 shadow-2xl">
+              <div
+                className="w-full h-full grid"
+                style={{
+                  gridTemplateColumns: "repeat(12, 1fr)",
+                  gridTemplateRows: "repeat(12, 1fr)",
+                  gap: "1px",
+                }}
+              >
+                {Array.from({ length: 144 }).map((_, i) => {
+                  const row = Math.floor(i / 12);
+                  const col = i % 12;
+                  const isCorner =
+                    (row < 3 && col < 3) ||
+                    (row < 3 && col > 8) ||
+                    (row > 8 && col < 3);
+                  const isDark = isCorner || (row * 7 + col * 11) % 3 === 0;
+                  return (
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: deterministic QR grid
+                      key={i}
+                      className={isDark ? "bg-gray-900" : "bg-white"}
+                    />
+                  );
+                })}
+              </div>
+              {/* Avatar in center */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-wa-green flex items-center justify-center border-2 border-white shadow">
+                  <span className="text-white font-bold text-[16px]">
+                    {userProfile.name.slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <p className="text-white text-[16px] font-semibold">
+              {userProfile.name}
+            </p>
+            <p className="text-white/50 text-[12px]">
+              Scan to message me on WhatsApp
+            </p>
+            {/* Action buttons */}
+            <div className="flex gap-3 w-full">
+              <button
+                type="button"
+                data-ocid="settings.qr.share_button"
+                className="flex-1 py-3 rounded-xl bg-wa-green text-white font-semibold text-[14px] hover:brightness-105 transition-all"
+              >
+                Share
+              </button>
+              <button
+                type="button"
+                data-ocid="settings.qr.scan_button"
+                className="flex-1 py-3 rounded-xl bg-white/10 text-white font-semibold text-[14px] hover:bg-white/20 transition-all"
+              >
+                Scan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <AlertDialog open={deleteAccountOpen} onOpenChange={setDeleteAccountOpen}>
         <AlertDialogContent data-ocid="settings.delete_account.dialog">
           <AlertDialogHeader>

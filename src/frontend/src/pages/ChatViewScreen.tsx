@@ -51,16 +51,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Message } from "../backend.d";
 import CameraModal from "../components/CameraModal";
+import ChatThemeSheet, {
+  THEME_HEX,
+  loadChatTheme,
+} from "../components/ChatThemeSheet";
+import type { ChatTheme } from "../components/ChatThemeSheet";
 import ContactAvatar from "../components/ContactAvatar";
 import ContactInfoScreen from "../components/ContactInfoScreen";
 import ContactShareModal from "../components/ContactShareModal";
 import EmojiPicker from "../components/EmojiPicker";
 import ForwardMessageSheet from "../components/ForwardMessageSheet";
+import InAppBrowser from "../components/InAppBrowser";
+import LiveLocationModal from "../components/LiveLocationModal";
 import MessageContextMenu, {
   type ChatMessage,
 } from "../components/MessageContextMenu";
+import PhotoViewer, { type PhotoViewerImage } from "../components/PhotoViewer";
 import PollCreationModal from "../components/PollCreationModal";
-import ScheduleMessageModal from "../components/ScheduleMessageModal";
+import QuickRepliesPanel from "../components/QuickRepliesPanel";
+import ScheduleMessageModal, {
+  type ScheduledMsg,
+} from "../components/ScheduleMessageModal";
+import VoiceMessagePlayer from "../components/VoiceMessagePlayer";
 import type { ActiveCall, WallpaperType } from "../hooks/useAppState";
 import {
   useContacts,
@@ -406,12 +418,18 @@ function MessageBubble({
   onLongPress,
   searchTerm,
   isHighlighted,
+  onPhotoOpen,
+  translatedText,
+  onTickTap,
 }: {
   msg: ChatMessage;
   onLongPress: (msg: ChatMessage) => void;
   onReactionSelect?: (msgId: string, emoji: string) => void;
   searchTerm: string;
   isHighlighted: boolean;
+  onPhotoOpen?: (msgId: string) => void;
+  translatedText?: string;
+  onTickTap?: (msg: ChatMessage) => void;
 }) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -425,18 +443,62 @@ function MessageBubble({
   };
 
   const renderContent = (text: string) => {
-    if (!searchTerm || !text.toLowerCase().includes(searchTerm.toLowerCase()))
-      return <span>{text}</span>;
-    const idx = text.toLowerCase().indexOf(searchTerm.toLowerCase());
-    return (
-      <>
-        {text.slice(0, idx)}
-        <mark className="bg-yellow-300 text-black rounded px-0.5">
-          {text.slice(idx, idx + searchTerm.length)}
-        </mark>
-        {text.slice(idx + searchTerm.length)}
-      </>
-    );
+    // Highlight @mentions
+    const mentionRegex = /@([A-Za-z]+)/g;
+    const segments: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match = mentionRegex.exec(text);
+    while (match !== null) {
+      const before = text.slice(lastIndex, match.index);
+      if (before) {
+        if (
+          searchTerm &&
+          before.toLowerCase().includes(searchTerm.toLowerCase())
+        ) {
+          const si = before.toLowerCase().indexOf(searchTerm.toLowerCase());
+          segments.push(
+            <span key={`b-${match.index}`}>
+              {before.slice(0, si)}
+              <mark className="bg-yellow-300 text-black rounded px-0.5">
+                {before.slice(si, si + searchTerm.length)}
+              </mark>
+              {before.slice(si + searchTerm.length)}
+            </span>,
+          );
+        } else {
+          segments.push(<span key={`b-${match.index}`}>{before}</span>);
+        }
+      }
+      segments.push(
+        <span key={`a-${match.index}`} className="font-semibold text-wa-green">
+          @{match[1]}
+        </span>,
+      );
+      lastIndex = match.index + match[0].length;
+      match = mentionRegex.exec(text);
+    }
+    const trailing = text.slice(lastIndex);
+    if (trailing) {
+      if (
+        searchTerm &&
+        trailing.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        const si = trailing.toLowerCase().indexOf(searchTerm.toLowerCase());
+        segments.push(
+          <span key="trail">
+            {trailing.slice(0, si)}
+            <mark className="bg-yellow-300 text-black rounded px-0.5">
+              {trailing.slice(si, si + searchTerm.length)}
+            </mark>
+            {trailing.slice(si + searchTerm.length)}
+          </span>,
+        );
+      } else {
+        segments.push(<span key="trail">{trailing}</span>);
+      }
+    }
+    if (segments.length === 0) return <span>{text}</span>;
+    return <>{segments}</>;
   };
 
   const isSent = msg.isSent;
@@ -478,31 +540,40 @@ function MessageBubble({
         )}
 
         {msg.type === "voice" ? (
-          <div className="flex items-center gap-2 pr-8 min-w-[140px]">
-            <div className="w-8 h-8 bg-wa-green rounded-full flex items-center justify-center flex-shrink-0">
-              <Mic className="w-4 h-4 text-white" />
-            </div>
-            <VoiceWaveform />
-            <span className="text-[11px] opacity-70 flex-shrink-0">
-              {msg.voiceDuration ?? "0:03"}
-            </span>
+          <div className="pr-1">
+            <VoiceMessagePlayer
+              duration={msg.voiceDuration ?? "0:12"}
+              isSent={msg.isSent}
+            />
+          </div>
+        ) : msg.deletedForEveryone ? (
+          <div className="pr-8">
+            <p className="text-[13px] italic text-muted-foreground">
+              🚫 This message was deleted
+            </p>
           </div>
         ) : msg.type === "image" ? (
           <div className="pr-8">
             {msg.imageUrl ? (
-              <img
-                src={msg.imageUrl}
-                alt="Sent"
-                className="w-full max-h-48 rounded-lg object-cover mb-1"
-              />
+              <button
+                type="button"
+                data-ocid="chat.photo.canvas_target"
+                onClick={() => onPhotoOpen?.(msg.id)}
+                className="w-full block"
+                aria-label="View full photo"
+              >
+                <img
+                  src={msg.imageUrl}
+                  alt="Sent"
+                  className="w-full max-h-48 rounded-lg object-cover mb-1"
+                />
+              </button>
             ) : (
               <div className="w-full h-32 bg-muted rounded-lg flex items-center justify-center mb-1">
                 <span className="text-2xl">📷</span>
               </div>
             )}
-            <p className="text-[12px] opacity-70">
-              {msg.imageUrl ? "Photo" : "Photo"}
-            </p>
+            <p className="text-[12px] opacity-70">Photo</p>
           </div>
         ) : (
           <div>
@@ -518,7 +589,18 @@ function MessageBubble({
         <span className="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] opacity-60 whitespace-nowrap">
           {msg.time}
           {isSent && msg.tickState && msg.tickState !== "none" && (
-            <MessageTicks state={msg.tickState} />
+            <button
+              type="button"
+              data-ocid="chat.ticks.button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTickTap?.(msg);
+              }}
+              className="inline-flex items-center hover:opacity-80 transition-opacity"
+              aria-label="Read receipt details"
+            >
+              <MessageTicks state={msg.tickState} />
+            </button>
           )}
         </span>
       </div>
@@ -535,6 +617,19 @@ function MessageBubble({
               </span>
             ))}
           </div>
+        </div>
+      )}
+      {/* Stage 17: Translation display */}
+      {translatedText && (
+        <div
+          data-ocid="chat.translate.panel"
+          className={`mt-1.5 text-[11px] italic border-t pt-1 ${
+            isSent
+              ? "border-wa-sent-fg/20 text-wa-sent-fg/70"
+              : "border-border text-muted-foreground"
+          }`}
+        >
+          🌐 {translatedText}
         </div>
       )}
     </div>
@@ -607,10 +702,20 @@ export default function ChatViewScreen({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduledMsgs, setScheduledMsgs] = useState<
-    { id: number; text: string; dt: Date }[]
+    {
+      id: number;
+      text: string;
+      dt: Date;
+      recurring?: "none" | "daily" | "weekly";
+    }[]
   >([]);
   const [showScheduledPanel, setShowScheduledPanel] = useState(false);
   const [showMuteSheet, setShowMuteSheet] = useState(false);
+  const [showChatThemeSheet, setShowChatThemeSheet] = useState(false);
+  const [chatTheme, setChatTheme] = useState<ChatTheme>({
+    bubbleColor: "default",
+    headerColor: "default",
+  });
   const [showDisappearingSheet, setShowDisappearingSheet] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
@@ -625,10 +730,39 @@ export default function ChatViewScreen({
   const [showUPISheet, setShowUPISheet] = useState(false);
   const [showForwardSheet, setShowForwardSheet] = useState(false);
   const [forwardMsg, setForwardMsg] = useState<ChatMessage | null>(null);
+  const [showQuickRepliesPanel, setShowQuickRepliesPanel] = useState(false);
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [showPollCreation, setShowPollCreation] = useState(false);
   const [showContactShareModal, setShowContactShareModal] = useState(false);
+  // Multi-select mode
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set());
+  // In-app browser
+  const [browserUrl, setBrowserUrl] = useState<string | null>(null);
+  // Live location
+  const [showLiveLocation, setShowLiveLocation] = useState(false);
   const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
   const [pinnedDismissed, setPinnedDismissed] = useState(false);
+  // Stage 17: multi-pin support
+  const [pinnedMsgs, setPinnedMsgs] = useState<ChatMessage[]>([]);
+  const [pinnedIdx, setPinnedIdx] = useState(0);
+  // Stage 17: translation
+  const [translatedMsgs, setTranslatedMsgs] = useState<Record<string, string>>(
+    {},
+  );
+  // Stage 17: read receipt details
+  const [readReceiptMsg, setReadReceiptMsg] = useState<ExtChatMessage | null>(
+    null,
+  );
+  // Stage 17: mention popup
+  const [showMentionPopup, setShowMentionPopup] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const GROUP_MEMBERS = ["Alice", "Bob", "Carol", "Dave", "Eve"];
+  // Stage 17: edit scheduled
+  const [editingScheduledId, setEditingScheduledId] = useState<number | null>(
+    null,
+  );
   const [selectedMuteOption, setSelectedMuteOption] = useState("8h");
   const [selectedDisappearing, setSelectedDisappearing] = useState("off");
   const [selectedShareContact, setSelectedShareContact] = useState("");
@@ -713,6 +847,12 @@ export default function ChatViewScreen({
   useEffect(() => {
     markAsRead(conversationId);
   }, [conversationId, markAsRead]);
+
+  // Load chat theme
+  useEffect(() => {
+    const theme = loadChatTheme(conversationId.toString());
+    setChatTheme(theme);
+  }, [conversationId]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSkeletonLoading(false), 2000);
@@ -895,7 +1035,30 @@ export default function ChatViewScreen({
   };
 
   const handleContextMenuOpen = (msg: ChatMessage) => {
+    if (multiSelectMode) {
+      setSelectedMsgIds((prev) => {
+        const s = new Set(prev);
+        if (s.has(msg.id)) s.delete(msg.id);
+        else s.add(msg.id);
+        return s;
+      });
+      return;
+    }
     setContextMsg(msg);
+  };
+
+  const toggleMsgSelection = (msgId: string) => {
+    setSelectedMsgIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(msgId)) s.delete(msgId);
+      else s.add(msgId);
+      return s;
+    });
+  };
+
+  const exitMultiSelect = () => {
+    setMultiSelectMode(false);
+    setSelectedMsgIds(new Set());
   };
   const handleReply = (msg: ChatMessage) => {
     setReplyTo(msg);
@@ -912,6 +1075,34 @@ export default function ChatViewScreen({
   const handleDelete = (msg: ChatMessage) => {
     setLocalMessages((prev) => prev.filter((m) => m.id !== msg.id));
     toast.success("Message deleted");
+  };
+  const handlePhotoOpen = (msgId: string) => {
+    const imgs = localMessages.filter(
+      (lm) =>
+        lm.type === "image" &&
+        lm.imageUrl &&
+        !(lm as ExtChatMessage & { deletedForEveryone?: boolean })
+          .deletedForEveryone,
+    );
+    const idx = imgs.findIndex((lm) => lm.id === msgId);
+    setPhotoViewerIndex(Math.max(0, idx));
+    setPhotoViewerOpen(true);
+  };
+  const handleDeleteForEveryone = (msg: ChatMessage) => {
+    setLocalMessages((prev) =>
+      prev.map((m) =>
+        m.id === msg.id
+          ? {
+              ...m,
+              content: "",
+              deletedForEveryone: true,
+              type: "text" as const,
+              imageUrl: undefined,
+            }
+          : m,
+      ),
+    );
+    toast.success("Message deleted for everyone");
   };
   const handleReact = (msg: ChatMessage) => {
     setReactTarget(msg);
@@ -1043,8 +1234,79 @@ export default function ChatViewScreen({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Multi-select action bar */}
+      {multiSelectMode && (
+        <div
+          data-ocid="chat.multiselect.panel"
+          className="sticky top-0 z-[60] bg-[#1F2C34] text-white flex items-center gap-2 px-3 py-3 flex-shrink-0"
+          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
+        >
+          <button
+            type="button"
+            data-ocid="chat.multiselect.cancel_button"
+            onClick={exitMultiSelect}
+            className="p-1.5 rounded-full hover:bg-white/10"
+            aria-label="Cancel multi-select"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <span className="flex-1 text-[16px] font-semibold">
+            {selectedMsgIds.size} selected
+          </span>
+          {selectedMsgIds.size > 0 && (
+            <>
+              <button
+                type="button"
+                data-ocid="chat.multiselect.star_button"
+                onClick={() => {
+                  toast.success(`${selectedMsgIds.size} message(s) starred`);
+                  exitMultiSelect();
+                }}
+                className="p-2 rounded-full hover:bg-white/10"
+                aria-label="Star selected"
+              >
+                ⭐
+              </button>
+              <button
+                type="button"
+                data-ocid="chat.multiselect.forward_button"
+                onClick={() => {
+                  toast.success(`${selectedMsgIds.size} message(s) forwarded`);
+                  exitMultiSelect();
+                }}
+                className="p-2 rounded-full hover:bg-white/10"
+                aria-label="Forward selected"
+              >
+                ↗️
+              </button>
+              <button
+                type="button"
+                data-ocid="chat.multiselect.delete_button"
+                onClick={() => {
+                  setLocalMessages((prev) =>
+                    prev.filter((m) => !selectedMsgIds.has(m.id)),
+                  );
+                  toast.success(`${selectedMsgIds.size} message(s) deleted`);
+                  exitMultiSelect();
+                }}
+                className="p-2 rounded-full hover:bg-white/10 text-destructive"
+                aria-label="Delete selected"
+              >
+                🗑️
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {/* Sticky Chat header */}
-      <header className="sticky top-0 z-50 bg-wa-header flex flex-col flex-shrink-0">
+      <header
+        className="sticky top-0 z-50 bg-wa-header flex flex-col flex-shrink-0"
+        style={
+          THEME_HEX[chatTheme.headerColor]
+            ? { background: THEME_HEX[chatTheme.headerColor] }
+            : undefined
+        }
+      >
         <div
           className="flex items-center gap-2 px-2 pb-2"
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 44px)" }}
@@ -1219,6 +1481,13 @@ export default function ChatViewScreen({
                   Export chat
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  data-ocid="chat.menu.theme"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => setShowChatThemeSheet(true)}
+                >
+                  Chat theme
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   data-ocid="chat.menu.report"
                   className="text-[14px] py-2.5 cursor-pointer text-destructive"
                   onClick={() => setShowReportDialog(true)}
@@ -1295,31 +1564,75 @@ export default function ChatViewScreen({
         )}
       </header>
 
-      {/* Pinned message banner */}
-      {pinnedMessage && !pinnedDismissed && (
-        <button
-          type="button"
+      {/* Pinned message banner - Stage 17: multi-pin cycling */}
+      {(pinnedMsgs.length > 0 || (pinnedMessage && !pinnedDismissed)) && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 bg-wa-green/10 border-b border-wa-green/20 w-full"
           data-ocid="chat.pinned.panel"
-          className="flex items-center gap-2 px-3 py-2 bg-wa-green/10 border-b border-wa-green/20 cursor-pointer w-full text-left"
-          onClick={() => {
-            const el = document.getElementById(`msg-${pinnedMessage.id}`);
-            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-          }}
         >
           <div className="w-0.5 h-8 bg-wa-green rounded-full flex-shrink-0" />
-          <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            className="flex-1 min-w-0 text-left"
+            onClick={() => {
+              const msgs =
+                pinnedMsgs.length > 0
+                  ? pinnedMsgs
+                  : pinnedMessage
+                    ? [pinnedMessage]
+                    : [];
+              const current = msgs[pinnedIdx % msgs.length];
+              if (current) {
+                const el = document.getElementById(`msg-${current.id}`);
+                if (el)
+                  el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }}
+          >
             <p className="text-[10px] font-semibold text-wa-green">
-              📌 Pinned Message
+              📌 Pinned Message{" "}
+              {pinnedMsgs.length > 1
+                ? `${(pinnedIdx % pinnedMsgs.length) + 1}/${pinnedMsgs.length}`
+                : ""}
             </p>
             <p className="text-[12px] text-foreground truncate">
-              {pinnedMessage.content}
+              {pinnedMsgs.length > 0
+                ? pinnedMsgs[pinnedIdx % pinnedMsgs.length]?.content
+                : pinnedMessage?.content}
             </p>
-          </div>
+          </button>
+          {pinnedMsgs.length > 1 && (
+            <button
+              type="button"
+              data-ocid="chat.pinned.prev.button"
+              onClick={() =>
+                setPinnedIdx(
+                  (i) => (i - 1 + pinnedMsgs.length) % pinnedMsgs.length,
+                )
+              }
+              className="p-1 text-wa-green hover:text-wa-green/80 text-[14px] font-bold"
+              aria-label="Previous pinned"
+            >
+              ‹
+            </button>
+          )}
+          {pinnedMsgs.length > 1 && (
+            <button
+              type="button"
+              data-ocid="chat.pinned.next.button"
+              onClick={() => setPinnedIdx((i) => (i + 1) % pinnedMsgs.length)}
+              className="p-1 text-wa-green hover:text-wa-green/80 text-[14px] font-bold"
+              aria-label="Next pinned"
+            >
+              ›
+            </button>
+          )}
           <button
             type="button"
             data-ocid="chat.pinned.close_button"
             onClick={(e) => {
               e.stopPropagation();
+              setPinnedMsgs([]);
               setPinnedDismissed(true);
             }}
             className="p-1 text-muted-foreground hover:text-foreground"
@@ -1327,7 +1640,7 @@ export default function ChatViewScreen({
           >
             ✕
           </button>
-        </button>
+        </div>
       )}
 
       {/* Message area — smooth scrolling */}
@@ -1365,6 +1678,12 @@ export default function ChatViewScreen({
             >
               <div
                 className={`relative max-w-[75%] rounded-2xl px-3 py-2 shadow-bubble text-[14px] ${msg.senderId === CURRENT_USER_ID ? "bg-wa-sent text-wa-sent-fg rounded-br-sm bubble-sent" : "bg-wa-received text-wa-received-fg rounded-bl-sm bubble-received"}`}
+                style={
+                  msg.senderId === CURRENT_USER_ID &&
+                  THEME_HEX[chatTheme.bubbleColor]
+                    ? { background: THEME_HEX[chatTheme.bubbleColor] }
+                    : undefined
+                }
               >
                 <p className="leading-snug break-words pr-8">{msg.content}</p>
                 <span className="absolute bottom-1.5 right-2 text-[10px] opacity-60 whitespace-nowrap">
@@ -1381,16 +1700,56 @@ export default function ChatViewScreen({
             <div key={group.dateLabel}>
               <DateSeparator label={group.dateLabel} />
               {group.messages.map((msg) => (
-                <MessageBubble
+                <div
                   key={msg.id}
-                  msg={msg}
-                  onLongPress={handleContextMenuOpen}
-                  onReactionSelect={handleReactionSelect}
-                  searchTerm={searchTerm}
-                  isHighlighted={
-                    !!currentSearchMatch && currentSearchMatch.msg.id === msg.id
-                  }
-                />
+                  role={multiSelectMode ? "button" : undefined}
+                  tabIndex={multiSelectMode ? 0 : undefined}
+                  className={`relative flex items-center gap-2 ${multiSelectMode ? ((msg as any).senderId === CURRENT_USER_ID ? "flex-row-reverse" : "flex-row") : ""}`}
+                  onClick={() => multiSelectMode && toggleMsgSelection(msg.id)}
+                  onKeyDown={(e) => {
+                    if (multiSelectMode && (e.key === "Enter" || e.key === " "))
+                      toggleMsgSelection(msg.id);
+                  }}
+                >
+                  {multiSelectMode && (
+                    <div
+                      data-ocid="chat.multiselect.checkbox"
+                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 transition-all ${
+                        selectedMsgIds.has(msg.id)
+                          ? "bg-wa-green border-wa-green flex items-center justify-center"
+                          : "border-border bg-transparent"
+                      }`}
+                    >
+                      {selectedMsgIds.has(msg.id) && (
+                        <span className="text-white text-[12px] font-bold">
+                          ✓
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <MessageBubble
+                      msg={msg}
+                      onLongPress={(m) => {
+                        if (!multiSelectMode) {
+                          setMultiSelectMode(true);
+                          setSelectedMsgIds(new Set([m.id]));
+                        } else {
+                          handleContextMenuOpen(m);
+                        }
+                      }}
+                      onReactionSelect={handleReactionSelect}
+                      onPhotoOpen={handlePhotoOpen}
+                      searchTerm={searchTerm}
+                      isHighlighted={
+                        !!currentSearchMatch &&
+                        currentSearchMatch.msg.id === msg.id
+                      }
+                      translatedText={translatedMsgs[msg.id]}
+                      onTickTap={(m) => setReadReceiptMsg(m as ExtChatMessage)}
+                    />
+                  </div>
+                </div>
               ))}
             </div>
           ))}
@@ -1482,6 +1841,39 @@ export default function ChatViewScreen({
         />
       )}
 
+      {/* Stage 17: Mention popup */}
+      {showMentionPopup && isGroupChat && (
+        <div
+          className="absolute bottom-[72px] left-3 right-3 z-30 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
+          data-ocid="chat.mention.popover"
+        >
+          {GROUP_MEMBERS.filter((m) =>
+            m.toLowerCase().startsWith(mentionQuery.toLowerCase()),
+          ).map((member) => (
+            <button
+              key={member}
+              type="button"
+              data-ocid="chat.mention.button"
+              onClick={() => {
+                const atIdx = inputText.lastIndexOf("@");
+                setInputText(`${inputText.slice(0, atIdx)}@${member} `);
+                setShowMentionPopup(false);
+              }}
+              className="flex items-center gap-2 w-full px-3 py-2.5 hover:bg-muted/60 transition-colors text-left border-b border-border last:border-0"
+            >
+              <div className="w-7 h-7 rounded-full bg-wa-green/20 flex items-center justify-center flex-shrink-0">
+                <span className="text-[11px] font-bold text-wa-green">
+                  {member[0]}
+                </span>
+              </div>
+              <span className="text-[14px] font-medium text-foreground">
+                @{member}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Reply preview */}
       {replyTo && (
         <ReplyPreview message={replyTo} onClose={() => setReplyTo(null)} />
@@ -1569,6 +1961,37 @@ export default function ChatViewScreen({
                   </div>
                   <button
                     type="button"
+                    data-ocid={`schedule.edit_button.${idx + 1}`}
+                    onClick={() => {
+                      setEditingScheduledId(msg.id);
+                    }}
+                    className="p-1 text-muted-foreground hover:text-wa-green transition-colors text-[10px] font-semibold"
+                    aria-label="Edit scheduled message"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    data-ocid={`schedule.snooze_button.${idx + 1}`}
+                    onClick={() =>
+                      setScheduledMsgs((prev) =>
+                        prev.map((m) =>
+                          m.id === msg.id
+                            ? {
+                                ...m,
+                                dt: new Date(m.dt.getTime() + 60 * 60 * 1000),
+                              }
+                            : m,
+                        ),
+                      )
+                    }
+                    className="p-1 text-muted-foreground hover:text-amber-500 transition-colors text-[10px] font-semibold"
+                    aria-label="Snooze 1 hour"
+                  >
+                    +1h
+                  </button>
+                  <button
+                    type="button"
                     data-ocid={`schedule.delete_button.${idx + 1}`}
                     onClick={() =>
                       setScheduledMsgs((prev) =>
@@ -1603,6 +2026,17 @@ export default function ChatViewScreen({
             <Smile className="w-5 h-5" />
           </button>
 
+          {/* Quick Replies lightning button */}
+          <button
+            type="button"
+            data-ocid="chat.quickreplies.open_modal_button"
+            onClick={() => setShowQuickRepliesPanel(true)}
+            className="text-muted-foreground hover:text-yellow-500 transition-colors flex-shrink-0"
+            aria-label="Quick replies"
+          >
+            <span className="text-[18px] leading-none">⚡</span>
+          </button>
+
           <div className="flex-1 bg-background border border-border rounded-full flex items-center px-3 py-1.5 gap-2">
             <input
               ref={inputRef}
@@ -1610,7 +2044,27 @@ export default function ChatViewScreen({
               type="text"
               placeholder="Message"
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setInputText(val);
+                if (isGroupChat) {
+                  const atIdx = val.lastIndexOf("@");
+                  if (
+                    atIdx !== -1 &&
+                    atIdx ===
+                      val.length -
+                        1 -
+                        (val.slice(atIdx + 1).length -
+                          val.slice(atIdx + 1).replace(/[^a-zA-Z]/g, "").length)
+                  ) {
+                    const query = val.slice(atIdx + 1);
+                    setMentionQuery(query);
+                    setShowMentionPopup(true);
+                  } else if (!val.includes("@")) {
+                    setShowMentionPopup(false);
+                  }
+                }
+              }}
               onKeyDown={handleKeyDown}
               className="flex-1 bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none min-w-0"
             />
@@ -1860,6 +2314,34 @@ export default function ChatViewScreen({
                 </span>
               </button>
 
+              {/* Live Location */}
+              <button
+                type="button"
+                data-ocid="chat.attach.location.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  // Send location bubble
+                  const locMsg: ExtChatMessage = {
+                    id: `loc_${Date.now()}`,
+                    content: "📍 Live Location · Sharing for 15 minutes",
+                    isSent: true,
+                    time: new Date().toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }),
+                    reactions: [],
+                    imageUrl: undefined,
+                  };
+                  setLocalMessages((p) => [...p, locMsg]);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-green-600 rounded-2xl flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-[11px] text-foreground">Location</span>
+              </button>
+
               {/* Schedule Message */}
               <button
                 type="button"
@@ -1897,6 +2379,40 @@ export default function ChatViewScreen({
         </>
       )}
 
+      {/* Quick replies panel */}
+      <QuickRepliesPanel
+        open={showQuickRepliesPanel}
+        onClose={() => setShowQuickRepliesPanel(false)}
+        onSelect={(text) => setInputText(text)}
+      />
+
+      {/* Photo Viewer */}
+      {photoViewerOpen &&
+        (() => {
+          const images: PhotoViewerImage[] = localMessages
+            .filter(
+              (m) => m.type === "image" && m.imageUrl && !m.deletedForEveryone,
+            )
+            .map((m) => ({
+              id: m.id,
+              url: m.imageUrl as string,
+              caption: m.content !== "Photo" ? m.content : undefined,
+            }));
+          return (
+            <PhotoViewer
+              images={images}
+              initialIndex={Math.max(0, photoViewerIndex)}
+              onClose={() => setPhotoViewerOpen(false)}
+            />
+          );
+        })()}
+      {showLiveLocation && (
+        <LiveLocationModal onClose={() => setShowLiveLocation(false)} />
+      )}
+      {browserUrl && (
+        <InAppBrowser url={browserUrl} onClose={() => setBrowserUrl(null)} />
+      )}
+
       {/* Message context menu */}
       {contextMsg && (
         <MessageContextMenu
@@ -1906,12 +2422,35 @@ export default function ChatViewScreen({
           onCopy={handleCopy}
           onForward={(msg) => handleForward(msg)}
           onDelete={handleDelete}
+          onDeleteForEveryone={handleDeleteForEveryone}
           onReact={handleReact}
           onPin={(msg) => {
             setPinnedMessage(msg);
             setPinnedDismissed(false);
+            setPinnedMsgs((prev) => {
+              const exists = prev.find((m) => m.id === msg.id);
+              if (exists) return prev;
+              const updated = [...prev, msg].slice(-3);
+              setPinnedIdx(updated.length - 1);
+              return updated;
+            });
             setContextMsg(null);
             toast.success("Message pinned");
+          }}
+          onTranslate={(msg) => {
+            const FAKE_TRANSLATIONS: Record<string, string> = {
+              "Hey, are you coming to the meeting tomorrow?":
+                "Hola, ¿vendrás a la reunión mañana?",
+              "Good morning everyone!": "¡Buenos días a todos!",
+            };
+            const keys = Object.keys(FAKE_TRANSLATIONS);
+            const translated =
+              FAKE_TRANSLATIONS[msg.content] ??
+              `[ES] ${msg.content.slice(0, 60)}${msg.content.length > 60 ? "..." : ""}`;
+            void keys;
+            setTranslatedMsgs((prev) => ({ ...prev, [msg.id]: translated }));
+            setContextMsg(null);
+            toast.success("Message translated");
           }}
         />
       )}
@@ -1953,14 +2492,90 @@ export default function ChatViewScreen({
 
       {/* Schedule Message Modal */}
       <ScheduleMessageModal
-        open={showScheduleModal}
-        onClose={() => setShowScheduleModal(false)}
+        open={showScheduleModal || editingScheduledId !== null}
+        onClose={() => {
+          setShowScheduleModal(false);
+          setEditingScheduledId(null);
+        }}
         messageText={inputText}
-        onSchedule={(text, dt) => {
-          setScheduledMsgs((prev) => [...prev, { id: Date.now(), text, dt }]);
+        editMsg={
+          editingScheduledId !== null
+            ? ((scheduledMsgs.find((m) => m.id === editingScheduledId) as
+                | ScheduledMsg
+                | undefined) ?? null)
+            : null
+        }
+        onEditSave={(id, text, dt, recurring) => {
+          setScheduledMsgs((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, text, dt, recurring } : m)),
+          );
+          setEditingScheduledId(null);
+        }}
+        onSchedule={(text, dt, recurring) => {
+          setScheduledMsgs((prev) => [
+            ...prev,
+            { id: Date.now(), text, dt, recurring: recurring ?? "none" },
+          ]);
           setInputText("");
         }}
       />
+
+      {/* Stage 17: Read receipt details sheet */}
+      {readReceiptMsg && (
+        <>
+          <div
+            className="absolute inset-0 z-50 bg-black/50"
+            onClick={() => setReadReceiptMsg(null)}
+            role="button"
+            tabIndex={-1}
+            aria-label="Close"
+            onKeyDown={(e) => e.key === "Escape" && setReadReceiptMsg(null)}
+          />
+          <div
+            className="absolute bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl p-5"
+            data-ocid="chat.read_receipt.sheet"
+          >
+            <div className="flex justify-center mb-3">
+              <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+            </div>
+            <h3 className="text-[15px] font-bold text-foreground mb-4">
+              Message Info
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="text-[18px]">✓✓</span>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Delivered
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {readReceiptMsg.time} · Today
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-[18px] text-[#53bdeb]">✓✓</span>
+                <div>
+                  <p className="text-[13px] font-semibold text-foreground">
+                    Read
+                  </p>
+                  <p className="text-[12px] text-muted-foreground">
+                    {readReceiptMsg.time} · Today
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              data-ocid="chat.read_receipt.close_button"
+              onClick={() => setReadReceiptMsg(null)}
+              className="mt-5 w-full py-3 rounded-xl bg-muted text-foreground text-[14px] font-semibold hover:bg-muted/70 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </>
+      )}
 
       {/* Hidden file inputs */}
       <input
@@ -2114,6 +2729,14 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
+      <ChatThemeSheet
+        open={showChatThemeSheet}
+        onOpenChange={setShowChatThemeSheet}
+        contactId={conversationId.toString()}
+        theme={chatTheme}
+        onThemeChange={setChatTheme}
+      />
+
       <AlertDialog open={showExportDialog} onOpenChange={setShowExportDialog}>
         <AlertDialogContent
           data-ocid="chat.export.dialog"
@@ -2130,7 +2753,27 @@ export default function ChatViewScreen({
               data-ocid="chat.export.without_media.button"
               className="bg-[#25D366] hover:bg-[#25D366]/90 text-white w-full"
               onClick={() => {
-                toast.success("Chat exported without media");
+                const lines = [
+                  `WhatsApp Chat Export - ${contactName}`,
+                  `Date: ${new Date().toLocaleDateString()}`,
+                  "",
+                  ...localMessages.map((m) => {
+                    const sender = (m as ExtChatMessage).isSent
+                      ? "You"
+                      : contactName;
+                    return `[${(m as ExtChatMessage).time}] ${sender}: ${m.content ?? ""}`;
+                  }),
+                ];
+                const blob = new Blob([lines.join("\n")], {
+                  type: "text/plain",
+                });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `chat_${contactName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.txt`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success("Chat exported");
                 setShowExportDialog(false);
               }}
             >

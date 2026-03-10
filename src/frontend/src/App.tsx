@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useState } from "react";
+import AdvancedSearchScreen from "./components/AdvancedSearchScreen";
 import BottomNav from "./components/BottomNav";
 import BroadcastListsScreen from "./components/BroadcastListsScreen";
 import CallOverlay from "./components/CallOverlay";
@@ -9,21 +10,27 @@ import QRCodeScreen from "./components/QRCodeScreen";
 import StarredMessagesScreen from "./components/StarredMessagesScreen";
 import StatusViewer from "./components/StatusViewer";
 import { useAppState } from "./hooks/useAppState";
+import AppLockScreen from "./pages/AppLockScreen";
+import BlockedContactsScreen from "./pages/BlockedContactsScreen";
+import BusinessProfileScreen from "./pages/BusinessProfileScreen";
 import CallsScreen from "./pages/CallsScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatLockScreen from "./pages/ChatLockScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
 import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
+import LinkedDevicesScreen from "./pages/LinkedDevicesScreen";
 import LoginScreen from "./pages/LoginScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
 import OTPScreen from "./pages/OTPScreen";
 import PaymentsScreen from "./pages/PaymentsScreen";
 import ProfileCreationScreen from "./pages/ProfileCreationScreen";
+import QuickRepliesSettingsScreen from "./pages/QuickRepliesSettingsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import SplashScreen from "./pages/SplashScreen";
 import StatusScreen from "./pages/StatusScreen";
 import StorageScreen from "./pages/StorageScreen";
+import TwoStepVerificationScreen from "./pages/TwoStepVerificationScreen";
 
 export type TabName =
   | "chats"
@@ -88,6 +95,10 @@ export default function App() {
 
   // Main app state
   const [activeTab, setActiveTab] = useState<TabName>("chats");
+  const handleTabChange = (tab: TabName) => {
+    setActiveTab(tab);
+    if (tab === "calls") setMissedCallsCount(0);
+  };
   const [openConversationId, setOpenConversationId] = useState<bigint | null>(
     null,
   );
@@ -102,6 +113,16 @@ export default function App() {
   const [qrCodeOpen, setQrCodeOpen] = useState(false);
   const [storageOpen, setStorageOpen] = useState(false);
   const [chatLockOpen, setChatLockOpen] = useState(false);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  const [twoStepOpen, setTwoStepOpen] = useState(false);
+  const [linkedDevicesOpen, setLinkedDevicesOpen] = useState(false);
+  const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  const [businessProfileOpen, setBusinessProfileOpen] = useState(false);
+  const [blockedContactsOpen, setBlockedContactsOpen] = useState(false);
+  const [appLocked, setAppLocked] = useState(() => {
+    return localStorage.getItem("wa_app_lock_enabled") === "1";
+  });
+  const [missedCallsCount, setMissedCallsCount] = useState(3);
   const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
 
   const appState = useAppState();
@@ -266,6 +287,22 @@ export default function App() {
     );
   }
 
+  // App lock screen
+  if (appLocked && localStorage.getItem("wa_app_lock_enabled") === "1") {
+    const savedPin = localStorage.getItem("wa_app_lock_pin") ?? "0000";
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/50">
+        <div className="relative flex flex-col w-full max-w-[430px] h-screen overflow-hidden bg-background shadow-2xl">
+          <AppLockScreen
+            savedPin={savedPin}
+            onUnlock={() => setAppLocked(false)}
+          />
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
+
   // --- Main app ---
   return (
     <div className="flex items-center justify-center min-h-screen bg-muted/50">
@@ -334,6 +371,12 @@ export default function App() {
                   onLogout={handleLogout}
                   onOpenStorage={() => setStorageOpen(true)}
                   onOpenChatLock={() => setChatLockOpen(true)}
+                  onOpenQuickReplies={() => setQuickRepliesOpen(true)}
+                  onOpenTwoStep={() => setTwoStepOpen(true)}
+                  onOpenLinkedDevices={() => setLinkedDevicesOpen(true)}
+                  onOpenBusiness={() => setBusinessProfileOpen(true)}
+                  onOpenAppLock={() => setAppLocked(true)}
+                  onOpenBlockedContacts={() => setBlockedContactsOpen(true)}
                 />
               )}
             </>
@@ -369,6 +412,12 @@ export default function App() {
           {storageOpen && (
             <StorageScreen onBack={() => setStorageOpen(false)} />
           )}
+          {quickRepliesOpen && (
+            <QuickRepliesSettingsScreen
+              onBack={() => setQuickRepliesOpen(false)}
+            />
+          )}
+
           {chatLockOpen && (
             <ChatLockScreen onBack={() => setChatLockOpen(false)} />
           )}
@@ -378,11 +427,35 @@ export default function App() {
               contactName={mediaGalleryFor}
             />
           )}
+          {twoStepOpen && (
+            <TwoStepVerificationScreen onBack={() => setTwoStepOpen(false)} />
+          )}
+          {linkedDevicesOpen && (
+            <LinkedDevicesScreen onBack={() => setLinkedDevicesOpen(false)} />
+          )}
+          {businessProfileOpen && (
+            <BusinessProfileScreen
+              onBack={() => setBusinessProfileOpen(false)}
+            />
+          )}
+          {blockedContactsOpen && (
+            <BlockedContactsScreen
+              onBack={() => setBlockedContactsOpen(false)}
+            />
+          )}
+          <AdvancedSearchScreen
+            open={advancedSearchOpen}
+            onClose={() => setAdvancedSearchOpen(false)}
+          />
         </div>
 
         {/* Bottom nav */}
         {openConversationId === null && appView === "main" && (
-          <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+          <BottomNav
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            missedCallsCount={missedCallsCount}
+          />
         )}
       </div>
       <Toaster />

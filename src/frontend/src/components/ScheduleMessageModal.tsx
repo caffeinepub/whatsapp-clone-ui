@@ -1,14 +1,32 @@
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, X } from "lucide-react";
+import { Calendar, Clock, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
+export interface ScheduledMsg {
+  id: number;
+  text: string;
+  dt: Date;
+  recurring?: "none" | "daily" | "weekly";
+}
 
 interface ScheduleMessageModalProps {
   open: boolean;
   onClose: () => void;
   messageText: string;
-  onSchedule: (text: string, dateTime: Date) => void;
+  onSchedule: (
+    text: string,
+    dateTime: Date,
+    recurring?: "none" | "daily" | "weekly",
+  ) => void;
+  editMsg?: ScheduledMsg | null;
+  onEditSave?: (
+    id: number,
+    text: string,
+    dt: Date,
+    recurring: "none" | "daily" | "weekly",
+  ) => void;
 }
 
 export default function ScheduleMessageModal({
@@ -16,14 +34,33 @@ export default function ScheduleMessageModal({
   onClose,
   messageText,
   onSchedule,
+  editMsg,
+  onEditSave,
 }: ScheduleMessageModalProps) {
-  const [text, setText] = useState(messageText);
+  const isEdit = !!editMsg;
+
+  const [text, setText] = useState(() => editMsg?.text ?? messageText);
   const [date, setDate] = useState(() => {
+    if (editMsg) {
+      const d = new Date(editMsg.dt);
+      return d.toISOString().split("T")[0];
+    }
     const d = new Date();
     d.setDate(d.getDate() + 1);
     return d.toISOString().split("T")[0];
   });
-  const [time, setTime] = useState("09:00");
+  const [time, setTime] = useState(() => {
+    if (editMsg) {
+      const d = new Date(editMsg.dt);
+      const h = d.getHours().toString().padStart(2, "0");
+      const m = d.getMinutes().toString().padStart(2, "0");
+      return `${h}:${m}`;
+    }
+    return "09:00";
+  });
+  const [recurring, setRecurring] = useState<"none" | "daily" | "weekly">(
+    editMsg?.recurring ?? "none",
+  );
 
   const handleSchedule = () => {
     if (!text.trim()) {
@@ -35,10 +72,16 @@ export default function ScheduleMessageModal({
       toast.error("Please pick a future date and time");
       return;
     }
-    onSchedule(text.trim(), dt);
-    toast.success(
-      `Message scheduled for ${dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}`,
-    );
+    if (isEdit && editMsg && onEditSave) {
+      onEditSave(editMsg.id, text.trim(), dt, recurring);
+      toast.success("Scheduled message updated");
+    } else {
+      onSchedule(text.trim(), dt, recurring);
+      const recurStr = recurring !== "none" ? ` · Repeats ${recurring}` : "";
+      toast.success(
+        `Scheduled for ${dt.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}${recurStr}`,
+      );
+    }
     onClose();
   };
 
@@ -62,15 +105,13 @@ export default function ScheduleMessageModal({
         data-ocid="schedule.dialog"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 16px)" }}
       >
-        {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h2 className="text-[16px] font-bold text-foreground">
-            Schedule Message
+            {isEdit ? "Edit Scheduled Message" : "Schedule Message"}
           </h2>
           <button
             type="button"
@@ -103,7 +144,7 @@ export default function ScheduleMessageModal({
             />
           </div>
 
-          {/* Date & Time row */}
+          {/* Date & Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label
@@ -140,6 +181,32 @@ export default function ScheduleMessageModal({
             </div>
           </div>
 
+          {/* Recurring */}
+          <div>
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1">
+              <RefreshCw className="w-3.5 h-3.5" /> Repeat
+            </p>
+            <div className="flex gap-2">
+              {(["none", "daily", "weekly"] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  data-ocid={`schedule.recurring.${opt}.toggle`}
+                  onClick={() => setRecurring(opt)}
+                  className={`flex-1 py-2 rounded-lg text-[12px] font-semibold border transition-colors ${
+                    recurring === opt
+                      ? "bg-wa-green text-white border-wa-green"
+                      : "border-border text-muted-foreground hover:border-wa-green/50"
+                  }`}
+                >
+                  {opt === "none"
+                    ? "Once"
+                    : opt.charAt(0).toUpperCase() + opt.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-3 pt-1">
             <Button
@@ -158,7 +225,7 @@ export default function ScheduleMessageModal({
               className="flex-1 bg-wa-green hover:bg-wa-green/90 text-white"
             >
               <Clock className="w-4 h-4 mr-1.5" />
-              Schedule
+              {isEdit ? "Save Changes" : "Schedule"}
             </Button>
           </div>
         </div>

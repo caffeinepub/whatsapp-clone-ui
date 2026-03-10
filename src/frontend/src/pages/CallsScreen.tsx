@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import CallDetailSheet from "../components/CallDetailSheet";
+import type { CallHistoryEntry } from "../components/CallDetailSheet";
 import ContactAvatar from "../components/ContactAvatar";
 import NewCallDialog from "../components/NewCallDialog";
 import type { ActiveCall } from "../hooks/useAppState";
@@ -98,6 +100,10 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
   const [showScheduledSheet, setShowScheduledSheet] = useState(false);
   const [showCallSettingsSheet, setShowCallSettingsSheet] = useState(false);
   const [ringtoneOn, setRingtoneOn] = useState(true);
+  const [selectedCall, setSelectedCall] = useState<CallHistoryEntry | null>(
+    null,
+  );
+  const [callDetailOpen, setCallDetailOpen] = useState(false);
   const [vibrateOn, setVibrateOn] = useState(true);
   const [callWaitingOn, setCallWaitingOn] = useState(false);
   const [wifiCallingOn, setWifiCallingOn] = useState(false);
@@ -230,14 +236,10 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
                 type="button"
                 key={`${call.name}-${i}`}
                 data-ocid={`calls.item.${i + 1}`}
-                onClick={() =>
-                  onOpenCall({
-                    name: call.name,
-                    initials: call.initials,
-                    kind: call.kind,
-                    colorIndex: call.colorIndex,
-                  })
-                }
+                onClick={() => {
+                  setSelectedCall(call as CallHistoryEntry);
+                  setCallDetailOpen(true);
+                }}
                 className="flex items-center gap-3 py-2 w-full hover:bg-muted/40 rounded-xl px-2 -mx-2 transition-colors text-left"
               >
                 <ContactAvatar
@@ -293,6 +295,13 @@ export default function CallsScreen({ onOpenCall }: CallsScreenProps) {
           </div>
         </div>
       </main>
+
+      <CallDetailSheet
+        open={callDetailOpen}
+        onOpenChange={setCallDetailOpen}
+        call={selectedCall}
+        onCallBack={onOpenCall}
+      />
 
       <NewCallDialog
         open={newCallOpen}

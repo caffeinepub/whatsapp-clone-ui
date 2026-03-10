@@ -733,7 +733,11 @@ export default function ChatListScreen({
       <CameraModal open={cameraOpen} onClose={() => setCameraOpen(false)} />
 
       {/* New Chat Screen */}
-      <NewChatScreen open={newChatOpen} onClose={() => setNewChatOpen(false)} />
+      <NewChatScreen
+        open={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        onNewGroup={onNewGroup}
+      />
 
       {/* Avatar Profile Sheet */}
       <Sheet

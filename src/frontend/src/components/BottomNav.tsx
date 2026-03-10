@@ -11,13 +11,10 @@ import type { TabName } from "../App";
 interface BottomNavProps {
   activeTab: TabName;
   onTabChange: (tab: TabName) => void;
+  missedCallsCount?: number;
 }
 
-const BADGES: Partial<Record<TabName, number>> = {
-  chats: 5,
-  calls: 2,
-  communities: 1,
-};
+// Badges are computed dynamically in the component
 
 const tabs: {
   id: TabName;
@@ -32,7 +29,11 @@ const tabs: {
   { id: "settings", label: "Settings", icon: Grid3X3 },
 ];
 
-export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
+export default function BottomNav({
+  activeTab,
+  onTabChange,
+  missedCallsCount = 0,
+}: BottomNavProps) {
   return (
     <nav
       className="sticky bottom-0 z-50 flex items-center bg-wa-nav-bg border-t border-border"
@@ -41,7 +42,12 @@ export default function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
-        const badge = isActive ? 0 : (BADGES[tab.id] ?? 0);
+        const dynamicBadges: Partial<Record<TabName, number>> = {
+          chats: 5,
+          calls: missedCallsCount,
+          communities: 1,
+        };
+        const badge = isActive ? 0 : (dynamicBadges[tab.id] ?? 0);
         return (
           <button
             key={tab.id}

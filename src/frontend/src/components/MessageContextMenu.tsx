@@ -1,4 +1,14 @@
-import { Copy, Forward, Pin, Reply, Smile, Trash2, X } from "lucide-react";
+import {
+  Copy,
+  Forward,
+  Languages,
+  Pin,
+  Reply,
+  Smile,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useState } from "react";
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +21,7 @@ export interface ChatMessage {
   tickState?: "none" | "single" | "double" | "seen";
   voiceDuration?: string;
   imageUrl?: string;
+  deletedForEveryone?: boolean;
 }
 
 interface MessageContextMenuProps {
@@ -20,15 +31,23 @@ interface MessageContextMenuProps {
   onCopy: (msg: ChatMessage) => void;
   onForward: (msg: ChatMessage) => void;
   onDelete: (msg: ChatMessage) => void;
+  onDeleteForEveryone: (msg: ChatMessage) => void;
   onReact: (msg: ChatMessage) => void;
   onPin?: (msg: ChatMessage) => void;
+  onTranslate?: (msg: ChatMessage) => void;
 }
 
-const MENU_ACTIONS = [
+const BASE_ACTIONS = [
   { id: "reply", label: "Reply", Icon: Reply, color: "text-foreground" },
   { id: "copy", label: "Copy", Icon: Copy, color: "text-foreground" },
   { id: "react", label: "React", Icon: Smile, color: "text-foreground" },
   { id: "forward", label: "Forward", Icon: Forward, color: "text-foreground" },
+  {
+    id: "translate",
+    label: "Translate",
+    Icon: Languages,
+    color: "text-foreground",
+  },
   { id: "pin", label: "Pin message", Icon: Pin, color: "text-foreground" },
   { id: "delete", label: "Delete", Icon: Trash2, color: "text-destructive" },
 ];
@@ -40,101 +59,148 @@ export default function MessageContextMenu({
   onCopy,
   onForward,
   onDelete,
+  onDeleteForEveryone,
   onReact,
   onPin,
+  onTranslate,
 }: MessageContextMenuProps) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const handleAction = (id: string) => {
     switch (id) {
       case "reply":
         onReply(message);
+        onClose();
         break;
       case "copy":
         onCopy(message);
+        onClose();
         break;
       case "forward":
         onForward(message);
+        onClose();
         break;
       case "delete":
-        onDelete(message);
+        setShowDeleteConfirm(true);
         break;
       case "react":
         onReact(message);
+        onClose();
         break;
       case "pin":
         onPin?.(message);
+        onClose();
+        break;
+      case "translate":
+        onTranslate?.(message);
+        onClose();
         break;
     }
-    onClose();
   };
+
+  if (showDeleteConfirm) {
+    return (
+      <>
+        <div
+          className="absolute inset-0 z-50 bg-black/50"
+          onClick={onClose}
+          role="button"
+          tabIndex={-1}
+          aria-label="Close"
+          onKeyDown={(e) => e.key === "Escape" && onClose()}
+        />
+        <div
+          className="absolute inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-background rounded-2xl shadow-2xl p-5"
+          data-ocid="chat.delete.dialog"
+        >
+          <h3 className="text-[16px] font-bold text-foreground mb-2">
+            Delete message?
+          </h3>
+          <p className="text-[13px] text-muted-foreground mb-5">
+            This action cannot be undone.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              data-ocid="chat.delete_for_everyone.button"
+              onClick={() => {
+                onDeleteForEveryone(message);
+                onClose();
+              }}
+              className="w-full py-3 rounded-xl bg-destructive text-destructive-foreground text-[14px] font-semibold hover:brightness-95 transition-all"
+            >
+              Delete for Everyone
+            </button>
+            <button
+              type="button"
+              data-ocid="chat.delete_for_me.button"
+              onClick={() => {
+                onDelete(message);
+                onClose();
+              }}
+              className="w-full py-3 rounded-xl bg-muted text-foreground text-[14px] font-semibold hover:bg-muted/70 transition-all"
+            >
+              Delete for Me
+            </button>
+            <button
+              type="button"
+              data-ocid="chat.delete.cancel_button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="w-full py-3 rounded-xl bg-transparent text-muted-foreground text-[14px] font-semibold hover:bg-muted/40 transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
-      {/* Backdrop */}
       <div
-        className="absolute inset-0 z-40 bg-black/40"
+        className="absolute inset-0 z-50 bg-black/50"
         onClick={onClose}
-        onKeyDown={(e) => e.key === "Escape" && onClose()}
         role="button"
         tabIndex={-1}
-        aria-label="Close menu"
+        aria-label="Close context menu"
+        onKeyDown={(e) => e.key === "Escape" && onClose()}
       />
-
-      {/* Bottom sheet */}
       <div
-        data-ocid="chat.context_menu.sheet"
-        className="absolute bottom-0 left-0 right-0 z-50 bg-card rounded-t-2xl shadow-2xl animate-slide-up"
+        className={`absolute ${
+          message.isSent ? "right-4" : "left-4"
+        } top-1/2 -translate-y-1/2 z-50 bg-background rounded-2xl shadow-2xl py-1 min-w-[160px]`}
+        data-ocid="chat.context.dropdown_menu"
       >
-        {/* Handle bar */}
-        <div className="flex justify-center pt-2 pb-1">
-          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-        </div>
-
-        {/* Message preview */}
-        <div className="px-4 py-2 border-b border-border">
-          <p className="text-[12px] text-muted-foreground truncate">
-            {message.type === "voice" ? "🎤 Voice message" : message.content}
+        <div className="px-3 py-2 border-b border-border">
+          <p className="text-[11px] text-muted-foreground font-medium truncate max-w-[200px]">
+            {message.content.slice(0, 40)}
+            {message.content.length > 40 ? "..." : ""}
           </p>
         </div>
-
-        {/* Actions */}
-        <div className="py-1">
-          {MENU_ACTIONS.map((action, i) => {
-            const Icon = action.Icon;
-            const isLast = i === MENU_ACTIONS.length - 1;
-            return (
-              <div key={action.id}>
-                <button
-                  type="button"
-                  data-ocid={`chat.context.${action.id}.button`}
-                  onClick={() => handleAction(action.id)}
-                  className={`flex items-center gap-4 w-full px-5 py-3.5 hover:bg-muted/60 transition-colors text-left ${action.color}`}
-                >
-                  <Icon className="w-5 h-5 flex-shrink-0" />
-                  <span className="text-[15px] font-medium">
-                    {action.label}
-                  </span>
-                </button>
-                {!isLast && <div className="h-px bg-border/60 ml-[52px]" />}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Cancel */}
-        <div className="px-4 py-3 border-t border-border">
+        {BASE_ACTIONS.map(({ id, label, Icon, color }) => (
           <button
             type="button"
-            data-ocid="chat.context_menu.close_button"
-            onClick={onClose}
-            className="flex items-center gap-4 w-full px-1 py-2 text-muted-foreground hover:text-foreground transition-colors"
+            key={id}
+            data-ocid={`chat.context.${id}.button`}
+            onClick={() => handleAction(id)}
+            className={`flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left ${
+              id === "delete" ? "border-t border-border" : ""
+            }`}
           >
-            <X className="w-5 h-5 flex-shrink-0" />
-            <span className="text-[15px] font-medium">Cancel</span>
+            <Icon className={`w-4 h-4 ${color} flex-shrink-0`} />
+            <span className={`text-[14px] ${color}`}>{label}</span>
           </button>
-        </div>
-
-        {/* Safe area */}
-        <div style={{ height: "env(safe-area-inset-bottom, 8px)" }} />
+        ))}
+        <button
+          type="button"
+          data-ocid="chat.context.close_button"
+          onClick={onClose}
+          className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/50 transition-colors text-left border-t border-border"
+        >
+          <X className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <span className="text-[14px] text-muted-foreground">Close</span>
+        </button>
       </div>
     </>
   );
