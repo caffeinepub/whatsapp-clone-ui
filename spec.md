@@ -1,27 +1,42 @@
-# WhatsApp Clone UI
+# WhatsApp Clone UI - Stage 31: Reels & Live Tabs
 
 ## Current State
-SettingsScreen.tsx has: Account, Privacy, Notifications, Storage, Chats, Appearance, Linked Devices, and Help panels. All functional with switches, selects, and sub-screens.
+Full WhatsApp clone with 30 stages of features including chat, calls, status, payments, settings, business profile, group tools, etc. Bottom nav has: Chats, Updates, Communities, Calls.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Theme & Accent Color** panel: 8 accent color swatches (Green, Blue, Purple, Pink, Orange, Teal, Red, Yellow) that change the app's primary color, saved to localStorage
-- **Language & Region** panel: language picker (English, Hindi, Spanish, French, Arabic, Chinese), date format (DD/MM/YY, MM/DD/YY, YYYY-MM-DD), time format (12h / 24h)
-- **Accessibility** panel: text size live slider (80%–140%), reduce motion toggle, high contrast mode toggle, bold text toggle
-- **Shortcuts & Gestures** panel: swipe-left action (Archive/Delete/Mute), swipe-right action (Reply/Mark read), double-tap message action, quick reaction set selector
-- **Advanced / Beta** panel: beta features toggle, message preview in notifications toggle, hardware acceleration toggle, app version info with copy
-- New settings group row items for each new panel on the main settings list
+- **Reels tab** in bottom navigation (5th tab)
+  - Vertical full-screen video scroll (TikTok/Instagram Reels style)
+  - Like, Share, Comment, Save buttons on right side
+  - Comment sheet with reply, like comment, nested replies
+  - 3-dot menu for extra options (report, not interested, save, share to chat)
+  - Video progress bar at top
+  - Author info overlay at bottom
+- **Live tab** in bottom navigation (6th tab or merged with Reels)
+  - Live video streaming viewer UI
+  - Live chat panel with scrolling comments
+  - Like, Share, Comment actions
+  - Reply to comments in live chat
+  - Viewer count display
+  - "Send Live Request" button for users to request to go live
+  - Host controls: start live, end live
+  - Gift/reaction animations overlay
 
 ### Modify
-- Main SETTINGS_GROUPS: add new group with 5 new items (Accent Theme, Language, Accessibility, Gestures, Advanced)
-- Appearance panel: enhanced with accent color section already in new Theme panel (no duplication)
+- Bottom navigation: add Reels and Live tabs (adjust layout to fit 5-6 tabs or use icons only)
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add new state variables for all new settings
-2. Add 5 new panel items to a new SETTINGS_GROUPS entry
-3. Add 5 new SettingsPanel components with full interactive content
-4. Wire accent color selection to CSS variable override via inline style on root
+1. Add Reels tab with vertical swipe video feed (mock videos using colored placeholders + metadata)
+2. Add right-side action buttons: Like (with count), Comment (opens sheet), Share, Save
+3. Comment sheet: list of comments, reply button per comment, like comment, nested replies
+4. 3-dot extra options menu per reel
+5. Add Live tab with live stream viewer screen
+6. Live chat panel: scrolling comments, reply, like
+7. Live actions: like/share/comment
+8. Send Live Request modal
+9. Host live start/end flow
+10. Update bottom nav to include Reels and Live icons

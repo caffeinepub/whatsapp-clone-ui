@@ -24,6 +24,7 @@ import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
 import GroupAdminScreen from "./pages/GroupAdminScreen";
 import LinkedDevicesScreen from "./pages/LinkedDevicesScreen";
+import LiveScreen from "./pages/LiveScreen";
 import LoginScreen from "./pages/LoginScreen";
 import MarketplaceScreen from "./pages/MarketplaceScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
@@ -32,6 +33,7 @@ import OTPScreen from "./pages/OTPScreen";
 import PaymentsScreen from "./pages/PaymentsScreen";
 import ProfileCreationScreen from "./pages/ProfileCreationScreen";
 import QuickRepliesSettingsScreen from "./pages/QuickRepliesSettingsScreen";
+import ReelsScreen from "./pages/ReelsScreen";
 import SecretChatsScreen from "./pages/SecretChatsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import SplashScreen from "./pages/SplashScreen";
@@ -45,7 +47,9 @@ export type TabName =
   | "status"
   | "communities"
   | "payments"
-  | "settings";
+  | "settings"
+  | "reels"
+  | "live";
 type AppView = "main" | "new-group" | "contacts";
 type AuthState = "splash" | "login" | "otp" | "profile" | "app";
 
@@ -379,6 +383,8 @@ export default function App() {
                 onOpenSettings={() => setActiveTab("settings")}
               />
             )}
+            {activeTab === "reels" && <ReelsScreen />}
+            {activeTab === "live" && <LiveScreen />}
             {activeTab === "communities" && (
               <CommunitiesScreen onOpenChat={handleOpenChat} />
             )}

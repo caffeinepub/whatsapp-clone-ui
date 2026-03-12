@@ -68,6 +68,16 @@ import ContactShareModal from "../components/ContactShareModal";
 import EmojiPicker from "../components/EmojiPicker";
 import ForwardMessageSheet from "../components/ForwardMessageSheet";
 import InAppBrowser from "../components/InAppBrowser";
+import {
+  PaymentRequestBubble,
+  PaymentRequestSheet,
+  SplitBillCard,
+  SplitBillSheet,
+} from "../components/InChatPayments";
+import type {
+  PaymentRequestData,
+  SplitBillData,
+} from "../components/InChatPayments";
 import LiveLocationModal from "../components/LiveLocationModal";
 import LiveStreamModal from "../components/LiveStreamModal";
 import MessageContextMenu, {
@@ -432,6 +442,11 @@ function MessageBubble({
   translatedText,
   onTickTap,
   onReactionTap,
+  paymentRequestData,
+  splitBillData,
+  onPayRequest,
+  onDeclineRequest,
+  onPaySplit,
 }: {
   msg: ChatMessage;
   onLongPress: (msg: ChatMessage) => void;
@@ -443,6 +458,11 @@ function MessageBubble({
   onPhotoOpen?: (msgId: string) => void;
   translatedText?: string;
   onTickTap?: (msg: ChatMessage) => void;
+  paymentRequestData?: PaymentRequestData;
+  splitBillData?: SplitBillData;
+  onPayRequest?: (id: string) => void;
+  onDeclineRequest?: (id: string) => void;
+  onPaySplit?: (billId: string, name: string) => void;
 }) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
@@ -634,6 +654,37 @@ function MessageBubble({
             )}
             <p className="text-[12px] opacity-70">Photo</p>
           </div>
+        ) : (msg as ExtChatMessage).paymentRequestId ? (
+          <div className="p-0 -m-1">
+            <PaymentRequestBubble
+              data={
+                paymentRequestData ?? {
+                  id: (msg as ExtChatMessage).paymentRequestId ?? "pr",
+                  amount: 0,
+                  note: "",
+                  status: "pending",
+                  isSent: msg.isSent,
+                }
+              }
+              onPay={onPayRequest}
+              onDecline={onDeclineRequest}
+            />
+          </div>
+        ) : (msg as ExtChatMessage).splitBillId ? (
+          <div className="p-0 -m-1">
+            <SplitBillCard
+              data={
+                splitBillData ?? {
+                  id: (msg as ExtChatMessage).splitBillId ?? "sb",
+                  total: 0,
+                  description: "",
+                  participants: [],
+                  isSent: msg.isSent,
+                }
+              }
+              onPay={onPaySplit}
+            />
+          </div>
         ) : (
           <div>
             <p className="leading-snug break-words pr-8">
@@ -757,6 +808,8 @@ function ReactionPanel({
 interface ExtChatMessage extends ChatMessage {
   imageUrl?: string;
   starred?: boolean;
+  paymentRequestId?: string;
+  splitBillId?: string;
 }
 
 export default function ChatViewScreen({
@@ -864,6 +917,14 @@ export default function ChatViewScreen({
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
   const [eventDesc, setEventDesc] = useState("");
+  const [showPaymentRequest, setShowPaymentRequest] = useState(false);
+  const [showSplitBill, setShowSplitBill] = useState(false);
+  const [paymentRequests, setPaymentRequests] = useState<
+    Record<string, PaymentRequestData>
+  >({});
+  const [splitBills, setSplitBills] = useState<Record<string, SplitBillData>>(
+    {},
+  );
   const docInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -1887,6 +1948,50 @@ export default function ChatViewScreen({
                       }
                       translatedText={translatedMsgs[msg.id]}
                       onTickTap={(m) => setReadReceiptMsg(m as ExtChatMessage)}
+                      paymentRequestData={
+                        (msg as ExtChatMessage).paymentRequestId
+                          ? paymentRequests[
+                              (msg as ExtChatMessage).paymentRequestId!
+                            ]
+                          : undefined
+                      }
+                      splitBillData={
+                        (msg as ExtChatMessage).splitBillId
+                          ? splitBills[(msg as ExtChatMessage).splitBillId!]
+                          : undefined
+                      }
+                      onPayRequest={(id) => {
+                        setPaymentRequests((prev) => ({
+                          ...prev,
+                          [id]: { ...prev[id], status: "paid" },
+                        }));
+                        toast.success("Payment sent!", {
+                          position: "top-center",
+                        });
+                      }}
+                      onDeclineRequest={(id) => {
+                        setPaymentRequests((prev) => ({
+                          ...prev,
+                          [id]: { ...prev[id], status: "declined" },
+                        }));
+                        toast("Request declined", { position: "top-center" });
+                      }}
+                      onPaySplit={(billId, participantName) => {
+                        setSplitBills((prev) => ({
+                          ...prev,
+                          [billId]: {
+                            ...prev[billId],
+                            participants: prev[billId].participants.map((p) =>
+                              p.name === participantName
+                                ? { ...p, paid: true }
+                                : p,
+                            ),
+                          },
+                        }));
+                        toast.success(`${participantName} paid their share!`, {
+                          position: "top-center",
+                        });
+                      }}
                     />
                   </div>
                 </div>
@@ -2542,6 +2647,38 @@ export default function ChatViewScreen({
                   <Clock className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-[11px] text-foreground">Schedule</span>
+              </button>
+
+              {/* Request Money */}
+              <button
+                type="button"
+                data-ocid="chat.attach.request_money.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  setShowPaymentRequest(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-[#075E54] rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">💸</span>
+                </div>
+                <span className="text-[11px] text-foreground">Request</span>
+              </button>
+
+              {/* Split Bill */}
+              <button
+                type="button"
+                data-ocid="chat.attach.split_bill.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  setShowSplitBill(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-blue-700 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">🧾</span>
+                </div>
+                <span className="text-[11px] text-foreground">Split Bill</span>
               </button>
 
               {/* Cancel */}
@@ -3859,6 +3996,53 @@ export default function ChatViewScreen({
           </Button>
         </SheetContent>
       </Sheet>
+      {/* Payment Request Sheet */}
+      <PaymentRequestSheet
+        open={showPaymentRequest}
+        onClose={() => setShowPaymentRequest(false)}
+        contactName={conversationId ? String(conversationId) : "Contact"}
+        onSend={(data) => {
+          setPaymentRequests((prev) => ({ ...prev, [data.id]: data }));
+          const newMsg: ExtChatMessage = {
+            id: `msg_${Date.now()}`,
+            content: `💳 Payment Request: ₹${data.amount}`,
+            isSent: true,
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            reactions: [],
+            tickState: "double",
+            paymentRequestId: data.id,
+          };
+          setLocalMessages((p) => [...p, newMsg]);
+        }}
+      />
+
+      {/* Split Bill Sheet */}
+      <SplitBillSheet
+        open={showSplitBill}
+        onClose={() => setShowSplitBill(false)}
+        isGroup={false}
+        contactName={conversationId ? String(conversationId) : "Contact"}
+        onSend={(data) => {
+          setSplitBills((prev) => ({ ...prev, [data.id]: data }));
+          const newMsg: ExtChatMessage = {
+            id: `msg_${Date.now()}`,
+            content: `🧾 Split Bill: ₹${data.total} for ${data.description}`,
+            isSent: true,
+            time: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            reactions: [],
+            tickState: "double",
+            splitBillId: data.id,
+          };
+          setLocalMessages((p) => [...p, newMsg]);
+        }}
+      />
+
       <Sheet open={showUPISheet} onOpenChange={setShowUPISheet}>
         <SheetContent
           side="bottom"

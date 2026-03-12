@@ -3,8 +3,10 @@ import {
   Grid3X3,
   MessageSquare,
   Phone,
+  Play,
   Radio,
   Users,
+  Wifi,
 } from "lucide-react";
 import type { TabName } from "../App";
 
@@ -14,8 +16,6 @@ interface BottomNavProps {
   missedCallsCount?: number;
 }
 
-// Badges are computed dynamically in the component
-
 const tabs: {
   id: TabName;
   label: string;
@@ -23,9 +23,11 @@ const tabs: {
 }[] = [
   { id: "chats", label: "Chats", icon: MessageSquare },
   { id: "status", label: "Updates", icon: Radio },
-  { id: "communities", label: "Communities", icon: Users },
+  { id: "reels", label: "Reels", icon: Play },
+  { id: "live", label: "Live", icon: Wifi },
+  { id: "communities", label: "Community", icon: Users },
   { id: "calls", label: "Calls", icon: Phone },
-  { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "payments", label: "Pay", icon: CreditCard },
   { id: "settings", label: "Settings", icon: Grid3X3 },
 ];
 
@@ -46,6 +48,7 @@ export default function BottomNav({
           chats: 5,
           calls: missedCallsCount,
           communities: 1,
+          live: 5,
         };
         const badge = isActive ? 0 : (dynamicBadges[tab.id] ?? 0);
         return (
@@ -55,7 +58,7 @@ export default function BottomNav({
             data-ocid={`nav.${tab.id}.tab`}
             onClick={() => onTabChange(tab.id)}
             className={`
-              flex flex-col items-center justify-center flex-1 py-2 gap-0.5
+              flex flex-col items-center justify-center flex-1 py-1.5 gap-0.5
               transition-colors duration-150
               ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}
             `}
@@ -64,20 +67,23 @@ export default function BottomNav({
           >
             <div className="relative">
               <Icon
-                className={`w-5 h-5 ${isActive ? "fill-wa-nav-active/20 stroke-wa-nav-active" : "stroke-muted-foreground"}`}
+                className={`w-4.5 h-4.5 ${isActive ? "fill-wa-nav-active/20 stroke-wa-nav-active" : "stroke-muted-foreground"}`}
+                style={{ width: 18, height: 18 }}
                 strokeWidth={isActive ? 2.5 : 2}
               />
               {badge > 0 && (
                 <span
                   data-ocid={`nav.${tab.id}.badge`}
-                  className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm"
+                  className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 shadow-sm"
                 >
                   {badge}
                 </span>
               )}
             </div>
             <span
-              className={`text-[9px] font-medium tracking-wide ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}`}
+              className={`text-[8px] font-medium tracking-wide leading-none ${
+                isActive ? "text-wa-nav-active" : "text-muted-foreground"
+              }`}
             >
               {tab.label}
             </span>
