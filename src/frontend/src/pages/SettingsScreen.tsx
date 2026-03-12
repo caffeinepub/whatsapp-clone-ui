@@ -17,16 +17,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Bell,
+  Check,
   ChevronRight,
+  Copy,
+  Eye,
+  Globe,
+  Hand,
   HardDrive,
   HelpCircle,
   Lock,
   MessageCircle,
   Moon,
+  Palette,
   QrCode,
+  Settings2,
   Smartphone,
   User,
 } from "lucide-react";
@@ -194,6 +202,45 @@ const SETTINGS_GROUPS = [
       },
     ],
   },
+  {
+    items: [
+      {
+        id: "theme",
+        icon: Palette,
+        label: "Theme & Colors",
+        description: "Accent color, bubble style",
+        color: "text-pink-500",
+      },
+      {
+        id: "language",
+        icon: Globe,
+        label: "Language & Region",
+        description: "Language, date & time format",
+        color: "text-blue-500",
+      },
+      {
+        id: "accessibility",
+        icon: Eye,
+        label: "Accessibility",
+        description: "Text size, motion, contrast",
+        color: "text-teal-500",
+      },
+      {
+        id: "gestures",
+        icon: Hand,
+        label: "Shortcuts & Gestures",
+        description: "Swipe actions, quick reactions",
+        color: "text-orange-500",
+      },
+      {
+        id: "advanced",
+        icon: Settings2,
+        label: "Advanced",
+        description: "Beta features, data, app info",
+        color: "text-gray-500",
+      },
+    ],
+  },
 ];
 
 type PanelId =
@@ -205,6 +252,11 @@ type PanelId =
   | "appearance"
   | "linked"
   | "help"
+  | "theme"
+  | "language"
+  | "accessibility"
+  | "gestures"
+  | "advanced"
   | null;
 
 const WALLPAPER_OPTIONS: {
@@ -238,6 +290,19 @@ const WALLPAPER_OPTIONS: {
     border: "border-emerald-500",
   },
 ];
+
+const ACCENT_COLORS = [
+  { id: "green", hex: "#25D366", label: "Green" },
+  { id: "blue", hex: "#0084FF", label: "Blue" },
+  { id: "purple", hex: "#8B5CF6", label: "Purple" },
+  { id: "pink", hex: "#EC4899", label: "Pink" },
+  { id: "orange", hex: "#F97316", label: "Orange" },
+  { id: "teal", hex: "#14B8A6", label: "Teal" },
+  { id: "red", hex: "#EF4444", label: "Red" },
+  { id: "yellow", hex: "#EAB308", label: "Yellow" },
+];
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 export default function SettingsScreen({
   darkMode,
@@ -308,6 +373,57 @@ export default function SettingsScreen({
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [clearCacheOpen, setClearCacheOpen] = useState(false);
+
+  // ── NEW: Theme & Colors state ─────────────────────────────────────
+  const [accentColor, setAccentColor] = useState(() => {
+    return localStorage.getItem("wa_accent_color") || "green";
+  });
+  const [appTheme, setAppTheme] = useState("system");
+  const [bubbleStyle, setBubbleStyle] = useState("classic");
+
+  // ── NEW: Language & Region state ──────────────────────────────────
+  const [language, setLanguage] = useState("en");
+  const [dateFormat, setDateFormat] = useState("dd/mm/yyyy");
+  const [timeFormat, setTimeFormat] = useState("12");
+  const [firstDay, setFirstDay] = useState("sunday");
+
+  // ── NEW: Accessibility state ───────────────────────────────────────
+  const [textSize, setTextSize] = useState([100]);
+  const [reduceMotion, setReduceMotion] = useState(() => {
+    return localStorage.getItem("wa_reduce_motion") === "1";
+  });
+  const [highContrast, setHighContrast] = useState(false);
+  const [boldText, setBoldText] = useState(false);
+  const [largeTouchTargets, setLargeTouchTargets] = useState(false);
+
+  // ── NEW: Gestures state ────────────────────────────────────────────
+  const [swipeLeft, setSwipeLeft] = useState("archive");
+  const [swipeRight, setSwipeRight] = useState("reply");
+  const [doubleTap, setDoubleTap] = useState("react");
+  const [selectedQuickReaction, setSelectedQuickReaction] = useState("👍");
+  const [hapticFeedback, setHapticFeedback] = useState(true);
+
+  // ── NEW: Advanced state ────────────────────────────────────────────
+  const [betaFeatures, setBetaFeatures] = useState(false);
+  const [msgPreview, setMsgPreview] = useState(true);
+  const [hwAccel, setHwAccel] = useState(true);
+  const [clearAllDataOpen, setClearAllDataOpen] = useState(false);
+  const [versionCopied, setVersionCopied] = useState(false);
+
+  function handleAccentColor(colorId: string) {
+    const color = ACCENT_COLORS.find((c) => c.id === colorId);
+    if (!color) return;
+    setAccentColor(colorId);
+    localStorage.setItem("wa_accent_color", colorId);
+    document.documentElement.style.setProperty("--wa-accent", color.hex);
+  }
+
+  function handleCopyVersion() {
+    navigator.clipboard.writeText("v6.0.0 (Build 2026.03)").then(() => {
+      setVersionCopied(true);
+      setTimeout(() => setVersionCopied(false), 2000);
+    });
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -1149,6 +1265,486 @@ export default function SettingsScreen({
           </SettingRow>
         </div>
       </SettingsPanel>
+
+      {/* ── NEW: Theme & Colors panel ─────────────────────────────────── */}
+      <SettingsPanel
+        title="Theme & Colors"
+        open={openPanel === "theme"}
+        onClose={() => setOpenPanel(null)}
+      >
+        {/* Accent Color */}
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Accent Color
+            </p>
+          </div>
+          <div className="px-4 py-4">
+            <div className="grid grid-cols-4 gap-3">
+              {ACCENT_COLORS.map((color) => (
+                <button
+                  key={color.id}
+                  type="button"
+                  data-ocid="settings.theme.color.button"
+                  onClick={() => handleAccentColor(color.id)}
+                  aria-label={color.label}
+                  className="flex flex-col items-center gap-1.5"
+                >
+                  <div
+                    className="w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-95"
+                    style={{ backgroundColor: color.hex }}
+                  >
+                    {accentColor === color.id && (
+                      <Check className="w-5 h-5 text-white" strokeWidth={3} />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground">
+                    {color.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* App Theme */}
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              App Theme
+            </p>
+          </div>
+          <div className="px-4 py-3 flex gap-2">
+            {["system", "light", "dark"].map((t) => (
+              <button
+                key={t}
+                type="button"
+                data-ocid="settings.theme.apptheme.toggle"
+                onClick={() => setAppTheme(t)}
+                className={`flex-1 py-2 rounded-xl text-[13px] font-semibold transition-colors border ${
+                  appTheme === t
+                    ? "bg-wa-green text-white border-wa-green"
+                    : "border-border text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                {t === "system" ? "System" : t === "light" ? "Light" : "Dark"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Bubble Style */}
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Chat Bubble Style
+            </p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            {[
+              {
+                id: "classic",
+                label: "Classic",
+                desc: "Rounded corners",
+                preview: "rounded-2xl",
+              },
+              {
+                id: "modern",
+                label: "Modern",
+                desc: "Sharp corners",
+                preview: "rounded-sm",
+              },
+              {
+                id: "minimal",
+                label: "Minimal",
+                desc: "Outlined style",
+                preview: "rounded-xl border-2",
+              },
+            ].map((style) => (
+              <button
+                key={style.id}
+                type="button"
+                data-ocid="settings.theme.bubble.toggle"
+                onClick={() => setBubbleStyle(style.id)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl border transition-colors ${
+                  bubbleStyle === style.id
+                    ? "border-wa-green bg-wa-green/5"
+                    : "border-border hover:bg-muted/40"
+                }`}
+              >
+                <div
+                  className={`w-10 h-7 bg-wa-green/20 ${style.preview} flex-shrink-0`}
+                />
+                <div className="flex-1 text-left">
+                  <p className="font-semibold text-[14px] text-foreground">
+                    {style.label}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {style.desc}
+                  </p>
+                </div>
+                {bubbleStyle === style.id && (
+                  <Check className="w-4 h-4 text-wa-green flex-shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </SettingsPanel>
+
+      {/* ── NEW: Language & Region panel ──────────────────────────────── */}
+      <SettingsPanel
+        title="Language & Region"
+        open={openPanel === "language"}
+        onClose={() => setOpenPanel(null)}
+      >
+        <div className="bg-card mt-3">
+          <SettingRow label="Language">
+            <Select value={language} onValueChange={setLanguage}>
+              <SelectTrigger
+                data-ocid="settings.language.lang.select"
+                className="w-36 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="hi">हिंदी (Hindi)</SelectItem>
+                <SelectItem value="es">Español</SelectItem>
+                <SelectItem value="fr">Français</SelectItem>
+                <SelectItem value="ar">العربية</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Date format">
+            <Select value={dateFormat} onValueChange={setDateFormat}>
+              <SelectTrigger
+                data-ocid="settings.language.date.select"
+                className="w-36 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dd/mm/yyyy">DD/MM/YYYY</SelectItem>
+                <SelectItem value="mm/dd/yyyy">MM/DD/YYYY</SelectItem>
+                <SelectItem value="yyyy-mm-dd">YYYY-MM-DD</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Time format" separator={false}>
+            <div className="flex gap-1">
+              {["12", "24"].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  data-ocid="settings.language.time.toggle"
+                  onClick={() => setTimeFormat(t)}
+                  className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-colors border ${
+                    timeFormat === t
+                      ? "bg-wa-green text-white border-wa-green"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {t}-hour
+                </button>
+              ))}
+            </div>
+          </SettingRow>
+        </div>
+        <div className="bg-card mt-3">
+          <SettingRow label="First day of week" separator={false}>
+            <div className="flex gap-1">
+              {["sunday", "monday"].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  data-ocid="settings.language.firstday.toggle"
+                  onClick={() => setFirstDay(d)}
+                  className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-colors border ${
+                    firstDay === d
+                      ? "bg-wa-green text-white border-wa-green"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {d === "sunday" ? "Sun" : "Mon"}
+                </button>
+              ))}
+            </div>
+          </SettingRow>
+        </div>
+      </SettingsPanel>
+
+      {/* ── NEW: Accessibility panel ───────────────────────────────────── */}
+      <SettingsPanel
+        title="Accessibility"
+        open={openPanel === "accessibility"}
+        onClose={() => setOpenPanel(null)}
+      >
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Text Size
+            </p>
+          </div>
+          <div className="px-4 py-4">
+            <Slider
+              data-ocid="settings.accessibility.textsize.input"
+              min={80}
+              max={140}
+              step={10}
+              value={textSize}
+              onValueChange={setTextSize}
+              className="mb-4"
+            />
+            <div className="bg-muted/30 rounded-xl p-3 flex items-center justify-center">
+              <p
+                className="text-foreground font-medium"
+                style={{ fontSize: `${textSize[0]}%` }}
+              >
+                Preview text at {textSize[0]}% size
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card mt-3">
+          <SettingRow
+            label="Reduce motion"
+            description="Minimise animations throughout the app"
+          >
+            <Switch
+              data-ocid="settings.accessibility.motion.switch"
+              checked={reduceMotion}
+              onCheckedChange={(v) => {
+                setReduceMotion(v);
+                localStorage.setItem("wa_reduce_motion", v ? "1" : "0");
+              }}
+            />
+          </SettingRow>
+          <SettingRow
+            label="High contrast mode"
+            description="Increase contrast for better readability"
+          >
+            <Switch
+              data-ocid="settings.accessibility.contrast.switch"
+              checked={highContrast}
+              onCheckedChange={setHighContrast}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Bold text"
+            description="Make all text bold for easier reading"
+          >
+            <Switch
+              data-ocid="settings.accessibility.bold.switch"
+              checked={boldText}
+              onCheckedChange={setBoldText}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Large touch targets"
+            description="Larger tap areas for buttons"
+            separator={false}
+          >
+            <Switch
+              data-ocid="settings.accessibility.targets.switch"
+              checked={largeTouchTargets}
+              onCheckedChange={setLargeTouchTargets}
+            />
+          </SettingRow>
+        </div>
+      </SettingsPanel>
+
+      {/* ── NEW: Shortcuts & Gestures panel ────────────────────────────── */}
+      <SettingsPanel
+        title="Shortcuts & Gestures"
+        open={openPanel === "gestures"}
+        onClose={() => setOpenPanel(null)}
+      >
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Swipe Actions
+            </p>
+          </div>
+          <SettingRow label="Swipe left on chat">
+            <Select value={swipeLeft} onValueChange={setSwipeLeft}>
+              <SelectTrigger
+                data-ocid="settings.gestures.swipeleft.select"
+                className="w-28 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="archive">Archive</SelectItem>
+                <SelectItem value="delete">Delete</SelectItem>
+                <SelectItem value="mute">Mute</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Swipe right on chat">
+            <Select value={swipeRight} onValueChange={setSwipeRight}>
+              <SelectTrigger
+                data-ocid="settings.gestures.swiperight.select"
+                className="w-28 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="reply">Reply</SelectItem>
+                <SelectItem value="markread">Mark as read</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow label="Double-tap message" separator={false}>
+            <Select value={doubleTap} onValueChange={setDoubleTap}>
+              <SelectTrigger
+                data-ocid="settings.gestures.doubletap.select"
+                className="w-28 h-8 text-[13px]"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="react">React</SelectItem>
+                <SelectItem value="copy">Copy</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </div>
+
+        <div className="bg-card mt-3">
+          <div className="px-4 py-2 border-b border-border">
+            <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wide">
+              Quick Reactions
+            </p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-[12px] text-muted-foreground mb-3">
+              Choose your default quick reaction
+            </p>
+            <div className="flex gap-3">
+              {QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  data-ocid="settings.gestures.reaction.button"
+                  onClick={() => setSelectedQuickReaction(emoji)}
+                  className={`w-11 h-11 rounded-full flex items-center justify-center text-[22px] transition-all border-2 ${
+                    selectedQuickReaction === emoji
+                      ? "border-wa-green ring-2 ring-wa-green/30 bg-wa-green/5 scale-110"
+                      : "border-transparent bg-muted/40"
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card mt-3">
+          <SettingRow
+            label="Haptic feedback"
+            description="Vibrate on interactions"
+            separator={false}
+          >
+            <Switch
+              data-ocid="settings.gestures.haptic.switch"
+              checked={hapticFeedback}
+              onCheckedChange={setHapticFeedback}
+            />
+          </SettingRow>
+        </div>
+      </SettingsPanel>
+
+      {/* ── NEW: Advanced panel ────────────────────────────────────────── */}
+      <SettingsPanel
+        title="Advanced"
+        open={openPanel === "advanced"}
+        onClose={() => setOpenPanel(null)}
+      >
+        <div className="bg-card mt-3">
+          <SettingRow
+            label="Beta features"
+            description="Get early access to experimental features"
+          >
+            <Switch
+              data-ocid="settings.advanced.beta.switch"
+              checked={betaFeatures}
+              onCheckedChange={setBetaFeatures}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Message preview in notifications"
+            description="Show message content in notification banners"
+          >
+            <Switch
+              data-ocid="settings.advanced.msgpreview.switch"
+              checked={msgPreview}
+              onCheckedChange={setMsgPreview}
+            />
+          </SettingRow>
+          <SettingRow
+            label="Hardware acceleration"
+            description="May improve performance on some devices"
+            separator={false}
+          >
+            <Switch
+              data-ocid="settings.advanced.hwaccel.switch"
+              checked={hwAccel}
+              onCheckedChange={setHwAccel}
+            />
+          </SettingRow>
+        </div>
+
+        {/* App version row */}
+        <div className="bg-card mt-3">
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <p className="font-medium text-[15px] text-foreground">
+                App version
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                v6.0.0 (Build 2026.03)
+              </p>
+            </div>
+            <button
+              type="button"
+              data-ocid="settings.advanced.version.button"
+              onClick={handleCopyVersion}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 hover:bg-muted transition-colors"
+            >
+              {versionCopied ? (
+                <span className="text-[12px] text-wa-green font-semibold">
+                  Copied!
+                </span>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-[12px] text-muted-foreground">
+                    Copy
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Clear all data */}
+        <div className="bg-card mt-3">
+          <button
+            type="button"
+            data-ocid="settings.advanced.cleardata.delete_button"
+            onClick={() => setClearAllDataOpen(true)}
+            className="flex items-center w-full px-4 py-3.5 text-destructive hover:bg-destructive/5 transition-colors"
+          >
+            <p className="font-medium text-[15px]">Clear all data</p>
+          </button>
+        </div>
+      </SettingsPanel>
+
       {/* Profile QR Code screen */}
       {showProfileQR && (
         <div
@@ -1297,6 +1893,34 @@ export default function SettingsScreen({
               onClick={() => setClearCacheOpen(false)}
             >
               Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* NEW: Clear all data confirmation dialog */}
+      <AlertDialog open={clearAllDataOpen} onOpenChange={setClearAllDataOpen}>
+        <AlertDialogContent data-ocid="settings.advanced.cleardata.dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently erase all app data including chats, media,
+              and settings. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-ocid="settings.advanced.cleardata.cancel_button">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="settings.advanced.cleardata.confirm_button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                localStorage.clear();
+                setClearAllDataOpen(false);
+              }}
+            >
+              Clear all data
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

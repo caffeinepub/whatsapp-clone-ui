@@ -1,27 +1,27 @@
-# WhatsApp Clone UI - Stage 27
+# WhatsApp Clone UI
 
 ## Current State
-Full WhatsApp-style mobile app with 26 stages of features including: auth flow, chat system, group chats, status/stories, channels, calls, business profile, reactions, reply threading, group admin tools, secret chats, marketplace, live streaming, event scheduling, AI assistant, WhatsApp Pay, and all previous UX polish.
+SettingsScreen.tsx has: Account, Privacy, Notifications, Storage, Chats, Appearance, Linked Devices, and Help panels. All functional with switches, selects, and sub-screens.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Channel Management Improvements**: Channel admin panel with subscriber count, post analytics, mute/unmute channel, delete channel, channel link sharing, pin posts in channel
-- **Disappearing Messages Enhancements**: Per-chat disappearing message timer selector (24h/7d/90d), visual countdown on messages near expiry, "disappearing messages on" banner in chat, auto-clear on timer
-- **Advanced Call Features**: Call waiting indicator, call recording simulation ("Recording" badge), add participants during call, call notes (post-call memo screen), call quality indicator (signal bars)
+- **Theme & Accent Color** panel: 8 accent color swatches (Green, Blue, Purple, Pink, Orange, Teal, Red, Yellow) that change the app's primary color, saved to localStorage
+- **Language & Region** panel: language picker (English, Hindi, Spanish, French, Arabic, Chinese), date format (DD/MM/YY, MM/DD/YY, YYYY-MM-DD), time format (12h / 24h)
+- **Accessibility** panel: text size live slider (80%–140%), reduce motion toggle, high contrast mode toggle, bold text toggle
+- **Shortcuts & Gestures** panel: swipe-left action (Archive/Delete/Mute), swipe-right action (Reply/Mark read), double-tap message action, quick reaction set selector
+- **Advanced / Beta** panel: beta features toggle, message preview in notifications toggle, hardware acceleration toggle, app version info with copy
+- New settings group row items for each new panel on the main settings list
 
 ### Modify
-- Existing channel viewer to show admin controls when user is channel owner
-- Existing call screen to include new controls
-- Chat info screen to include disappearing message setting
+- Main SETTINGS_GROUPS: add new group with 5 new items (Accent Theme, Language, Accessibility, Gestures, Advanced)
+- Appearance panel: enhanced with accent color section already in new Theme panel (no duplication)
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. Add ChannelAdminPanel component with analytics, pin post, share link, delete channel
-2. Add DisappearingMessagesBanner in chat header when enabled
-3. Add disappearing timer selector in chat info/settings
-4. Add visual expiry indicator on messages with disappearing mode active
-5. Enhance CallScreen with call waiting, add participant, recording badge, signal bars, post-call notes modal
-6. Wire all new UI into existing navigation without breaking any existing routes
+1. Add new state variables for all new settings
+2. Add 5 new panel items to a new SETTINGS_GROUPS entry
+3. Add 5 new SettingsPanel components with full interactive content
+4. Wire accent color selection to CSS variable override via inline style on root
