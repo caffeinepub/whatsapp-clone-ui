@@ -49,6 +49,12 @@ export default function StatusViewer({
 
   // Bottom toolbar state
   const [replyText, setReplyText] = useState("");
+  const [replyFocused, setReplyFocused] = useState(false);
+  const MOCK_PREV_REPLIES = [
+    { name: "Marcus Chen", text: "Love this! 😍", time: "2h ago" },
+    { name: "Priya Sharma", text: "Wow amazing shot!", time: "3h ago" },
+    { name: "Jordan Williams", text: "Where is this?? 😮", time: "5h ago" },
+  ];
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(24);
   const [viewersOpen, setViewersOpen] = useState(false);
@@ -272,6 +278,43 @@ export default function StatusViewer({
         ))}
       </div>
 
+      {/* Stage 26: Previous replies panel */}
+      {replyFocused && (
+        <div className="flex-shrink-0 mx-3 mb-1 rounded-2xl overflow-hidden bg-black/60 backdrop-blur-sm border border-white/10">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+            <span className="text-[11px] font-semibold text-white/60 uppercase tracking-wide">
+              Previous replies
+            </span>
+            <span className="text-[11px] text-white/40">
+              {MOCK_PREV_REPLIES.length} replies
+            </span>
+          </div>
+          <div className="max-h-28 overflow-y-auto">
+            {MOCK_PREV_REPLIES.map((r) => (
+              <div
+                key={r.name}
+                className="flex items-start gap-2 px-3 py-2 border-b border-white/5 last:border-0"
+              >
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-[9px] font-bold text-white">
+                    {r.name[0]}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-white/80">
+                    {r.name}
+                  </p>
+                  <p className="text-[12px] text-white/60 truncate">{r.text}</p>
+                </div>
+                <span className="text-[10px] text-white/30 flex-shrink-0 mt-0.5">
+                  {r.time}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Bottom toolbar: reply + actions */}
       <div
         className="flex-shrink-0 px-3 pb-6 pt-2 flex items-center gap-2"
@@ -285,8 +328,14 @@ export default function StatusViewer({
             placeholder={`Reply to ${current.name}…`}
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
-            onFocus={() => setPaused(true)}
-            onBlur={() => setPaused(false)}
+            onFocus={() => {
+              setPaused(true);
+              setReplyFocused(true);
+            }}
+            onBlur={() => {
+              setPaused(false);
+              setTimeout(() => setReplyFocused(false), 200);
+            }}
             className="flex-1 bg-transparent text-white text-[14px] placeholder:text-white/60 outline-none"
           />
           {replyText.trim() && (

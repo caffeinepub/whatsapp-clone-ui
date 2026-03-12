@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowDown,
@@ -34,19 +35,24 @@ import {
   Check,
   CheckCheck,
   Clock,
+  Copy,
   File,
   MapPin,
   Mic,
   MoreVertical,
   Paperclip,
   Phone,
+  Reply,
   Search,
   Send,
   Smile,
+  Star,
+  Trash2,
   Users,
   Video,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Message } from "../backend.d";
@@ -90,6 +96,7 @@ interface ChatViewScreenProps {
   onOpenCall: (contact: ActiveCall) => void;
   wallpaper?: WallpaperType;
   onOpenMediaGallery?: (contactName: string) => void;
+  onOpenGroupAdmin?: () => void;
 }
 
 function formatMessageTime(ts: bigint): string {
@@ -418,15 +425,19 @@ function LinkPreview({ url }: { url: string }) {
 function MessageBubble({
   msg,
   onLongPress,
+  onSwipeReply,
   searchTerm,
   isHighlighted,
   onPhotoOpen,
   translatedText,
   onTickTap,
+  onReactionTap,
 }: {
   msg: ChatMessage;
   onLongPress: (msg: ChatMessage) => void;
+  onSwipeReply?: (msg: ChatMessage) => void;
   onReactionSelect?: (msgId: string, emoji: string) => void;
+  onReactionTap?: (msg: ChatMessage) => void;
   searchTerm: string;
   isHighlighted: boolean;
   onPhotoOpen?: (msgId: string) => void;
@@ -434,6 +445,9 @@ function MessageBubble({
   onTickTap?: (msg: ChatMessage) => void;
 }) {
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeTouchStart = useRef<{ x: number; y: number } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [swipeTriggered, setSwipeTriggered] = useState(false);
 
   const startLongPress = () => {
     longPressTimer.current = setTimeout(() => {
@@ -442,6 +456,32 @@ function MessageBubble({
   };
   const cancelLongPress = () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  };
+
+  const handleSwipeTouchStart = (e: React.TouchEvent) => {
+    swipeTouchStart.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+    setSwipeTriggered(false);
+  };
+  const handleSwipeTouchMove = (e: React.TouchEvent) => {
+    if (!swipeTouchStart.current) return;
+    const dx = e.touches[0].clientX - swipeTouchStart.current.x;
+    const dy = e.touches[0].clientY - swipeTouchStart.current.y;
+    if (Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
+    if (dx > 0 && dx < 80) {
+      setSwipeOffset(dx);
+    } else if (dx >= 60 && !swipeTriggered) {
+      setSwipeTriggered(true);
+      setSwipeOffset(0);
+      swipeTouchStart.current = null;
+      onSwipeReply?.(msg);
+    }
+  };
+  const handleSwipeTouchEnd = () => {
+    swipeTouchStart.current = null;
+    setSwipeOffset(0);
   };
 
   const renderContent = (text: string) => {
@@ -509,7 +549,24 @@ function MessageBubble({
     <div
       className={`flex ${isSent ? "justify-end" : "justify-start"} mb-1 relative`}
       id={`msg-${msg.id}`}
+      onTouchStart={handleSwipeTouchStart}
+      onTouchMove={handleSwipeTouchMove}
+      onTouchEnd={handleSwipeTouchEnd}
+      style={{
+        transform:
+          swipeOffset > 0 ? `translateX(${swipeOffset * 0.4}px)` : undefined,
+        transition: swipeOffset === 0 ? "transform 0.2s ease" : undefined,
+      }}
     >
+      {/* Swipe reply indicator */}
+      {swipeOffset > 20 && (
+        <div
+          className={`absolute ${isSent ? "left-0" : "right-0"} top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-wa-green flex items-center justify-center shadow-md`}
+          style={{ opacity: Math.min(1, swipeOffset / 60) }}
+        >
+          <span className="text-white text-[12px]">↩</span>
+        </div>
+      )}
       <div
         className={`
           relative max-w-[75%] rounded-2xl px-3 py-2 shadow-bubble text-[14px]
@@ -589,6 +646,9 @@ function MessageBubble({
         )}
 
         <span className="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] opacity-60 whitespace-nowrap">
+          {(msg as ChatMessage & { isEdited?: boolean }).isEdited && (
+            <span className="text-[9px] italic opacity-70">edited</span>
+          )}
           {msg.time}
           {isSent && msg.tickState && msg.tickState !== "none" && (
             <button
@@ -611,14 +671,32 @@ function MessageBubble({
         <div
           className={`absolute -bottom-3 ${isSent ? "right-2" : "left-2"} flex gap-0.5 z-10`}
         >
-          <div className="bg-card border border-border rounded-full px-1.5 py-0.5 shadow-bubble flex items-center gap-0.5">
-            {msg.reactions.map((r, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: emoji reactions can duplicate
-              <span key={`reaction-${r}-${i}`} className="text-[13px]">
-                {r}
-              </span>
-            ))}
-          </div>
+          <button
+            type="button"
+            data-ocid="chat.reaction.button"
+            onClick={() => onReactionTap?.(msg)}
+            className="bg-card border border-border rounded-full px-1.5 py-0.5 shadow-bubble flex items-center gap-0.5 active:scale-110 transition-transform"
+            aria-label="View reactions"
+          >
+            {(() => {
+              // Aggregate same emoji
+              const counts: Record<string, number> = {};
+              for (const r of msg.reactions) counts[r] = (counts[r] || 0) + 1;
+              return Object.entries(counts).map(([emoji, count]) => (
+                <span
+                  key={emoji}
+                  className="text-[13px] flex items-center gap-0.5"
+                >
+                  {emoji}
+                  {count > 1 && (
+                    <span className="text-[10px] text-muted-foreground font-semibold">
+                      {count}
+                    </span>
+                  )}
+                </span>
+              ));
+            })()}
+          </button>
         </div>
       )}
       {/* Stage 17: Translation display */}
@@ -687,6 +765,7 @@ export default function ChatViewScreen({
   onOpenCall,
   wallpaper,
   onOpenMediaGallery,
+  onOpenGroupAdmin,
 }: ChatViewScreenProps) {
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -747,6 +826,11 @@ export default function ChatViewScreen({
   const [showLiveLocation, setShowLiveLocation] = useState(false);
   const [showLiveStream, setShowLiveStream] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
+  const [showReactorsSheet, setShowReactorsSheet] = useState(false);
+  const [reactorsTarget, setReactorsTarget] = useState<ChatMessage | null>(
+    null,
+  );
   const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
   const [pinnedDismissed, setPinnedDismissed] = useState(false);
   // Stage 17: multi-pin support
@@ -769,7 +853,9 @@ export default function ChatViewScreen({
     null,
   );
   const [selectedMuteOption, setSelectedMuteOption] = useState("8h");
-  const [selectedDisappearing, setSelectedDisappearing] = useState("off");
+  const [selectedDisappearing, setSelectedDisappearing] = useState(() => {
+    return localStorage.getItem(`wa_disappear_${conversationId}`) ?? "off";
+  });
   const [selectedShareContact, setSelectedShareContact] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptions, setPollOptions] = useState(["", ""]);
@@ -874,9 +960,31 @@ export default function ChatViewScreen({
     setTimeout(() => setShowTyping(false), 2000);
   }, []);
 
+  const handleEdit = (msg: ChatMessage) => {
+    setEditingMsg(msg);
+    setInputText(msg.content);
+    setReplyTo(null);
+    setShowEmojiPicker(false);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
   const handleSend = () => {
     const text = inputText.trim();
     if (!text || isSending) return;
+
+    // Handle edit mode
+    if (editingMsg) {
+      setLocalMessages((prev) =>
+        prev.map((m) =>
+          m.id === editingMsg.id ? { ...m, content: text, isEdited: true } : m,
+        ),
+      );
+      setEditingMsg(null);
+      setInputText("");
+      setShowEmojiPicker(false);
+      toast.success("Message edited");
+      return;
+    }
 
     const newMsg: ExtChatMessage = {
       id: `local-${Date.now()}`,
@@ -1240,69 +1348,34 @@ export default function ChatViewScreen({
       onTouchEnd={handleTouchEnd}
     >
       {/* Multi-select action bar */}
-      {multiSelectMode && (
-        <div
-          data-ocid="chat.multiselect.panel"
-          className="sticky top-0 z-[60] bg-[#1F2C34] text-white flex items-center gap-2 px-3 py-3 flex-shrink-0"
-          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
-        >
-          <button
-            type="button"
-            data-ocid="chat.multiselect.cancel_button"
-            onClick={exitMultiSelect}
-            className="p-1.5 rounded-full hover:bg-white/10"
-            aria-label="Cancel multi-select"
+      {/* Multi-select count header (top bar, minimal) */}
+      <AnimatePresence>
+        {multiSelectMode && (
+          <motion.div
+            key="multiselect-header"
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+            data-ocid="chat.multiselect.panel"
+            className="sticky top-0 z-[60] bg-[#1F2C34] text-white flex items-center gap-3 px-3 py-3 flex-shrink-0"
+            style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
           >
-            <X className="w-5 h-5" />
-          </button>
-          <span className="flex-1 text-[16px] font-semibold">
-            {selectedMsgIds.size} selected
-          </span>
-          {selectedMsgIds.size > 0 && (
-            <>
-              <button
-                type="button"
-                data-ocid="chat.multiselect.star_button"
-                onClick={() => {
-                  toast.success(`${selectedMsgIds.size} message(s) starred`);
-                  exitMultiSelect();
-                }}
-                className="p-2 rounded-full hover:bg-white/10"
-                aria-label="Star selected"
-              >
-                ⭐
-              </button>
-              <button
-                type="button"
-                data-ocid="chat.multiselect.forward_button"
-                onClick={() => {
-                  toast.success(`${selectedMsgIds.size} message(s) forwarded`);
-                  exitMultiSelect();
-                }}
-                className="p-2 rounded-full hover:bg-white/10"
-                aria-label="Forward selected"
-              >
-                ↗️
-              </button>
-              <button
-                type="button"
-                data-ocid="chat.multiselect.delete_button"
-                onClick={() => {
-                  setLocalMessages((prev) =>
-                    prev.filter((m) => !selectedMsgIds.has(m.id)),
-                  );
-                  toast.success(`${selectedMsgIds.size} message(s) deleted`);
-                  exitMultiSelect();
-                }}
-                className="p-2 rounded-full hover:bg-white/10 text-destructive"
-                aria-label="Delete selected"
-              >
-                🗑️
-              </button>
-            </>
-          )}
-        </div>
-      )}
+            <button
+              type="button"
+              data-ocid="chat.multiselect.cancel_button"
+              onClick={exitMultiSelect}
+              className="p-1.5 rounded-full hover:bg-white/10 transition-colors"
+              aria-label="Cancel multi-select"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <span className="flex-1 text-[16px] font-semibold">
+              {selectedMsgIds.size} selected
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Sticky Chat header */}
       <header
         className="sticky top-0 z-50 bg-wa-header flex flex-col flex-shrink-0"
@@ -1515,67 +1588,90 @@ export default function ChatViewScreen({
                     🔴 Go Live
                   </DropdownMenuItem>
                 )}
+                {isGroupChat && (
+                  <DropdownMenuItem
+                    data-ocid="chat.menu.admin_tools"
+                    className="text-[14px] py-2.5 cursor-pointer"
+                    onClick={() => onOpenGroupAdmin?.()}
+                  >
+                    🛡️ Admin Tools
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
         {/* In-chat search bar */}
-        {searchOpen && (
-          <div className="flex items-center gap-2 px-3 pb-2 animate-fade-in">
-            <div className="flex-1 bg-white/15 rounded-full flex items-center gap-2 px-3 py-1.5">
-              <Search className="w-3.5 h-3.5 text-wa-header-fg/60 flex-shrink-0" />
-              <input
-                ref={searchInputRef}
-                data-ocid="chat.search.input"
-                type="text"
-                placeholder="Search messages..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setSearchMatchIndex(0);
-                }}
-                className="flex-1 bg-transparent text-[13px] text-wa-header-fg placeholder:text-wa-header-fg/50 outline-none min-w-0"
-              />
-              {searchTerm && (
-                <span className="text-wa-header-fg/60 text-[11px] flex-shrink-0">
-                  {searchMatches.length > 0
-                    ? `${searchMatchIndex + 1}/${searchMatches.length}`
-                    : "0/0"}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => navigateSearch("up")}
-              disabled={searchMatches.length === 0}
-              className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg disabled:opacity-40 rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Previous match"
+        <AnimatePresence>
+          {searchOpen && (
+            <motion.div
+              key="search-bar"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 400, damping: 35 }}
+              className="overflow-hidden"
             >
-              <ArrowUp className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigateSearch("down")}
-              disabled={searchMatches.length === 0}
-              className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg disabled:opacity-40 rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Next match"
-            >
-              <ArrowDown className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSearchOpen(false);
-                setSearchTerm("");
-              }}
-              className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg rounded-full hover:bg-white/10 transition-colors"
-              aria-label="Close search"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+              <div className="flex items-center gap-2 px-3 pb-2 pt-1">
+                <div className="flex-1 bg-white/15 rounded-full flex items-center gap-2 px-3 py-1.5">
+                  <Search className="w-3.5 h-3.5 text-wa-header-fg/60 flex-shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    data-ocid="chat.search.input"
+                    type="text"
+                    placeholder="Search messages..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setSearchMatchIndex(0);
+                    }}
+                    className="flex-1 bg-transparent text-[13px] text-wa-header-fg placeholder:text-wa-header-fg/50 outline-none min-w-0"
+                  />
+                  {searchTerm && (
+                    <span className="text-wa-header-fg/60 text-[11px] flex-shrink-0">
+                      {searchMatches.length > 0
+                        ? `${searchMatchIndex + 1}/${searchMatches.length}`
+                        : "0/0"}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  data-ocid="chat.search.prev_button"
+                  onClick={() => navigateSearch("up")}
+                  disabled={searchMatches.length === 0}
+                  className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg disabled:opacity-40 rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="Previous match"
+                >
+                  <ArrowUp className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.search.next_button"
+                  onClick={() => navigateSearch("down")}
+                  disabled={searchMatches.length === 0}
+                  className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg disabled:opacity-40 rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="Next match"
+                >
+                  <ArrowDown className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.search.close_button"
+                  onClick={() => {
+                    setSearchOpen(false);
+                    setSearchTerm("");
+                  }}
+                  className="p-1.5 text-wa-header-fg/80 hover:text-wa-header-fg rounded-full hover:bg-white/10 transition-colors"
+                  aria-label="Close search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* Pinned message banner - Stage 17: multi-pin cycling */}
@@ -1655,6 +1751,29 @@ export default function ChatViewScreen({
             ✕
           </button>
         </div>
+      )}
+
+      {/* Disappearing messages banner */}
+      {selectedDisappearing !== "off" && (
+        <button
+          type="button"
+          data-ocid="chat.disappearing.banner"
+          className="flex items-center justify-between px-4 py-2 bg-yellow-500/10 border-b border-yellow-500/20 flex-shrink-0 cursor-pointer w-full text-left"
+          onClick={() => setShowDisappearingSheet(true)}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-yellow-400 text-[14px]">⏱</span>
+            <p className="text-[12px] text-yellow-300 font-medium">
+              Disappearing messages:{" "}
+              {selectedDisappearing === "24h"
+                ? "24 hours"
+                : selectedDisappearing === "7d"
+                  ? "7 days"
+                  : "90 days"}
+            </p>
+          </div>
+          <p className="text-[11px] text-yellow-400/70">Tap to change</p>
+        </button>
       )}
 
       {/* Message area — smooth scrolling */}
@@ -1752,7 +1871,14 @@ export default function ChatViewScreen({
                           handleContextMenuOpen(m);
                         }
                       }}
+                      onSwipeReply={(m) => {
+                        handleReply(m);
+                      }}
                       onReactionSelect={handleReactionSelect}
+                      onReactionTap={(m) => {
+                        setReactorsTarget(m);
+                        setShowReactorsSheet(true);
+                      }}
                       onPhotoOpen={handlePhotoOpen}
                       searchTerm={searchTerm}
                       isHighlighted={
@@ -1885,6 +2011,36 @@ export default function ChatViewScreen({
               </span>
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Edit mode strip */}
+      {editingMsg && (
+        <div
+          data-ocid="chat.edit.preview"
+          className="flex items-center gap-2 px-3 py-2 bg-muted/60 border-t border-border"
+        >
+          <div className="w-1 h-8 bg-amber-400 rounded-full flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-amber-500 flex items-center gap-1">
+              <span>✏️</span> Editing message
+            </p>
+            <p className="text-[12px] text-muted-foreground truncate">
+              {editingMsg.content}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-ocid="chat.edit.cancel_button"
+            onClick={() => {
+              setEditingMsg(null);
+              setInputText("");
+            }}
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label="Cancel edit"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -2509,6 +2665,9 @@ export default function ChatViewScreen({
               msg.starred ? "Message unstarred" : "Message starred",
             );
           }}
+          onEdit={(msg) => {
+            handleEdit(msg);
+          }}
         />
       )}
 
@@ -2577,62 +2736,516 @@ export default function ChatViewScreen({
         }}
       />
 
-      {/* Stage 17: Read receipt details sheet */}
-      {readReceiptMsg && (
-        <>
-          <div
-            className="absolute inset-0 z-50 bg-black/50"
-            onClick={() => setReadReceiptMsg(null)}
-            role="button"
-            tabIndex={-1}
-            aria-label="Close"
-            onKeyDown={(e) => e.key === "Escape" && setReadReceiptMsg(null)}
-          />
-          <div
-            className="absolute bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl p-5"
-            data-ocid="chat.read_receipt.sheet"
+      {/* Reactors sheet */}
+      {showReactorsSheet && reactorsTarget && (
+        <Sheet open={showReactorsSheet} onOpenChange={setShowReactorsSheet}>
+          <SheetContent
+            side="bottom"
+            className="rounded-t-3xl px-0 pb-8 pt-4 max-h-[70vh] flex flex-col"
+            data-ocid="chat.reactors.sheet"
           >
-            <div className="flex justify-center mb-3">
-              <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
-            </div>
-            <h3 className="text-[15px] font-bold text-foreground mb-4">
-              Message Info
-            </h3>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="text-[18px]">✓✓</span>
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">
-                    Delivered
-                  </p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {readReceiptMsg.time} · Today
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[18px] text-[#53bdeb]">✓✓</span>
-                <div>
-                  <p className="text-[13px] font-semibold text-foreground">
-                    Read
-                  </p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {readReceiptMsg.time} · Today
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              type="button"
-              data-ocid="chat.read_receipt.close_button"
-              onClick={() => setReadReceiptMsg(null)}
-              className="mt-5 w-full py-3 rounded-xl bg-muted text-foreground text-[14px] font-semibold hover:bg-muted/70 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </>
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-2" />
+            <SheetHeader className="px-5 mb-2">
+              <SheetTitle className="text-[17px] font-bold">
+                Reactions
+              </SheetTitle>
+            </SheetHeader>
+            {reactorsTarget.reactions && reactorsTarget.reactions.length > 0 ? (
+              (() => {
+                const counts: Record<string, number> = {};
+                for (const r of reactorsTarget.reactions)
+                  counts[r] = (counts[r] || 0) + 1;
+                const emojis = Object.keys(counts);
+                const MOCK_NAMES = [
+                  "Alice",
+                  "Bob",
+                  "Carol",
+                  "Dave",
+                  "Eve",
+                  "Frank",
+                  "Grace",
+                ];
+                return (
+                  <Tabs
+                    defaultValue="all"
+                    className="flex-1 flex flex-col min-h-0"
+                  >
+                    <TabsList
+                      className="mx-5 h-9 bg-muted/50 mb-2 flex-shrink-0"
+                      data-ocid="chat.reactors.tab"
+                    >
+                      <TabsTrigger
+                        value="all"
+                        className="text-[12px] h-7 flex-1 data-[state=active]:bg-[#00a884] data-[state=active]:text-white"
+                      >
+                        All {reactorsTarget.reactions.length}
+                      </TabsTrigger>
+                      {emojis.map((emoji) => (
+                        <TabsTrigger
+                          key={emoji}
+                          value={emoji}
+                          className="text-[12px] h-7 flex-1 data-[state=active]:bg-[#00a884] data-[state=active]:text-white"
+                        >
+                          {emoji} {counts[emoji]}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    <TabsContent
+                      value="all"
+                      className="flex-1 overflow-y-auto px-5"
+                    >
+                      <div className="space-y-1">
+                        {reactorsTarget.reactions.map((emoji, i) => (
+                          <div
+                            // biome-ignore lint/suspicious/noArrayIndexKey: reaction ordering
+                            key={`reactor-all-${i}`}
+                            className="flex items-center gap-3 py-2.5 border-b border-border last:border-0"
+                            data-ocid={`chat.reactors.item.${i + 1}`}
+                          >
+                            <div className="w-9 h-9 rounded-full bg-[#00a884]/20 flex items-center justify-center flex-shrink-0">
+                              <span className="text-[13px] font-bold text-[#00a884]">
+                                {MOCK_NAMES[i % MOCK_NAMES.length][0]}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[14px] font-semibold text-foreground">
+                                {MOCK_NAMES[i % MOCK_NAMES.length]}
+                              </p>
+                            </div>
+                            <span className="text-[22px] reaction-pop">
+                              {emoji}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+                    {emojis.map((emoji) => (
+                      <TabsContent
+                        key={emoji}
+                        value={emoji}
+                        className="flex-1 overflow-y-auto px-5"
+                      >
+                        <div className="space-y-1">
+                          {reactorsTarget
+                            .reactions!.filter((r) => r === emoji)
+                            .map((_, i) => (
+                              <div
+                                // biome-ignore lint/suspicious/noArrayIndexKey: reaction ordering
+                                key={`reactor-${emoji}-${i}`}
+                                className="flex items-center gap-3 py-2.5 border-b border-border last:border-0"
+                              >
+                                <div className="w-9 h-9 rounded-full bg-[#00a884]/20 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-[13px] font-bold text-[#00a884]">
+                                    {MOCK_NAMES[i % MOCK_NAMES.length][0]}
+                                  </span>
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-[14px] font-semibold text-foreground">
+                                    {MOCK_NAMES[i % MOCK_NAMES.length]}
+                                  </p>
+                                </div>
+                                <span className="text-[22px]">{emoji}</span>
+                              </div>
+                            ))}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                );
+              })()
+            ) : (
+              <p className="text-[14px] text-muted-foreground text-center py-8 px-5">
+                No reactions yet
+              </p>
+            )}
+          </SheetContent>
+        </Sheet>
       )}
+
+      {/* Stage 25: Enhanced Message Info sheet */}
+      <AnimatePresence>
+        {readReceiptMsg && (
+          <motion.div
+            key="msg-info-overlay"
+            className="absolute inset-0 z-50 flex flex-col justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setReadReceiptMsg(null)}
+              role="button"
+              tabIndex={-1}
+              aria-label="Close"
+              onKeyDown={(e) => e.key === "Escape" && setReadReceiptMsg(null)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 380, damping: 38 }}
+              className="relative bg-background rounded-t-2xl shadow-2xl z-10 max-h-[75vh] flex flex-col"
+              data-ocid="chat.read_receipt.sheet"
+            >
+              {/* Handle + header */}
+              <div className="flex items-center px-4 pt-3 pb-3 border-b border-border/40">
+                <button
+                  type="button"
+                  data-ocid="chat.read_receipt.close_button"
+                  onClick={() => setReadReceiptMsg(null)}
+                  className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors mr-3"
+                  aria-label="Close message info"
+                >
+                  <X className="w-5 h-5 text-muted-foreground" />
+                </button>
+                <h3 className="text-[16px] font-bold text-foreground flex-1">
+                  Message Info
+                </h3>
+              </div>
+              {/* Message preview */}
+              <div className="mx-4 mt-3 mb-4 bg-muted/50 rounded-xl px-4 py-3 border border-border/30">
+                <p className="text-[13px] text-foreground leading-snug line-clamp-3">
+                  {readReceiptMsg.content}
+                </p>
+                <div className="flex items-center justify-end gap-1 mt-1">
+                  <span className="text-[10px] text-muted-foreground">
+                    {readReceiptMsg.time}
+                  </span>
+                  <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
+                </div>
+              </div>
+              {/* Scrollable info sections */}
+              <div className="overflow-y-auto flex-1 px-4 pb-6">
+                {/* Read by */}
+                <div className="mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCheck className="w-4 h-4 text-[#53bdeb]" />
+                    <span className="text-[13px] font-semibold text-[#53bdeb] uppercase tracking-wide">
+                      Read
+                    </span>
+                  </div>
+                  {[
+                    {
+                      name: contactName,
+                      initials: contactInitials,
+                      colorIndex,
+                      time: readReceiptMsg.time,
+                    },
+                  ].map((p, i) => (
+                    <div
+                      key={p.name}
+                      className="flex items-center gap-3 py-2.5 border-b border-border/20 last:border-0"
+                      data-ocid={`chat.read_receipt.item.${i + 1}`}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[14px] font-bold flex-shrink-0"
+                        style={{
+                          background: `hsl(${(p.colorIndex * 47) % 360}, 65%, 45%)`,
+                        }}
+                      >
+                        {p.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-semibold text-foreground truncate">
+                          {p.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Today, {p.time}
+                        </p>
+                      </div>
+                      <CheckCheck className="w-4 h-4 text-[#53bdeb] flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+                {/* Delivered to */}
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <CheckCheck className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">
+                      Delivered
+                    </span>
+                  </div>
+                  {[
+                    {
+                      name: contactName,
+                      initials: contactInitials,
+                      colorIndex,
+                      time: readReceiptMsg.time,
+                    },
+                  ].map((p, i) => (
+                    <div
+                      key={p.name}
+                      className="flex items-center gap-3 py-2.5 border-b border-border/20 last:border-0"
+                      data-ocid={`chat.delivered_receipt.item.${i + 1}`}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white text-[14px] font-bold flex-shrink-0"
+                        style={{
+                          background: `hsl(${(p.colorIndex * 47) % 360}, 65%, 45%)`,
+                        }}
+                      >
+                        {p.initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-semibold text-foreground truncate">
+                          {p.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Today, {p.time}
+                        </p>
+                      </div>
+                      <CheckCheck className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Stage 25: Floating Multi-select Toolbar */}
+      <AnimatePresence>
+        {multiSelectMode && (
+          <motion.div
+            key="multiselect-toolbar"
+            initial={{ y: 120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 38 }}
+            className="absolute bottom-0 left-0 right-0 z-[70] pointer-events-none"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          >
+            <div
+              className="mx-3 mb-3 bg-[#1F2C34] rounded-2xl shadow-2xl border border-white/10 pointer-events-auto overflow-hidden"
+              data-ocid="chat.multiselect.toolbar"
+            >
+              {/* Count badge row */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                <span className="text-white text-[13px] font-semibold">
+                  {selectedMsgIds.size} selected
+                </span>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.deselect_button"
+                  onClick={() => setSelectedMsgIds(new Set())}
+                  className="text-[#25D366] text-[12px] font-medium"
+                >
+                  Deselect all
+                </button>
+              </div>
+              {/* Action icons row */}
+              <div className="flex items-center justify-around px-2 py-3">
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.reply_button"
+                  onClick={() => {
+                    toast.success("Reply to selected message");
+                    exitMultiSelect();
+                  }}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                  disabled={selectedMsgIds.size !== 1}
+                >
+                  <Reply className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Reply</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.forward_button"
+                  onClick={() => {
+                    toast.success(
+                      `${selectedMsgIds.size} message(s) forwarded`,
+                    );
+                    exitMultiSelect();
+                  }}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                  disabled={selectedMsgIds.size === 0}
+                >
+                  <svg
+                    className="w-5 h-5 text-white fill-white"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 8V4l8 8-8 8v-4H4V8h8z" />
+                  </svg>
+                  <span className="text-[10px] text-white/70">Forward</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.star_button"
+                  onClick={() => {
+                    toast.success(`${selectedMsgIds.size} message(s) starred`);
+                    exitMultiSelect();
+                  }}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                  disabled={selectedMsgIds.size === 0}
+                >
+                  <Star className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Star</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.copy_button"
+                  onClick={() => {
+                    const texts = [...selectedMsgIds]
+                      .map((id) => {
+                        const m = localMessages.find((x) => x.id === id);
+                        return m?.content ?? "";
+                      })
+                      .filter(Boolean)
+                      .join("\n");
+                    navigator.clipboard?.writeText(texts).catch(() => {});
+                    toast.success("Copied to clipboard");
+                    exitMultiSelect();
+                  }}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                  disabled={selectedMsgIds.size === 0}
+                >
+                  <Copy className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Copy</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.delete_button"
+                  onClick={() => {
+                    setLocalMessages((prev) =>
+                      prev.filter((m) => !selectedMsgIds.has(m.id)),
+                    );
+                    toast.success(`${selectedMsgIds.size} message(s) deleted`);
+                    exitMultiSelect();
+                  }}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                  disabled={selectedMsgIds.size === 0}
+                >
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                  <span className="text-[10px] text-red-400/80">Delete</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Stage 25: Floating Multi-select Toolbar */}
+      <AnimatePresence>
+        {multiSelectMode && (
+          <motion.div
+            key="multiselect-toolbar"
+            initial={{ y: 120, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 120, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 38 }}
+            className="absolute bottom-0 left-0 right-0 z-[70] pointer-events-none"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          >
+            <div
+              className="mx-3 mb-3 bg-[#1F2C34] rounded-2xl shadow-2xl border border-white/10 pointer-events-auto overflow-hidden"
+              data-ocid="chat.multiselect.toolbar"
+            >
+              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
+                <span className="text-white text-[13px] font-semibold">
+                  {selectedMsgIds.size} selected
+                </span>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.deselect_button"
+                  onClick={() => setSelectedMsgIds(new Set())}
+                  className="text-[#25D366] text-[12px] font-medium"
+                >
+                  Deselect all
+                </button>
+              </div>
+              <div className="flex items-center justify-around px-2 py-3">
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.reply_button"
+                  onClick={() => {
+                    toast.success("Reply to selected message");
+                    exitMultiSelect();
+                  }}
+                  disabled={selectedMsgIds.size !== 1}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                >
+                  <Reply className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Reply</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.forward_button"
+                  onClick={() => {
+                    toast.success(
+                      `${selectedMsgIds.size} message(s) forwarded`,
+                    );
+                    exitMultiSelect();
+                  }}
+                  disabled={selectedMsgIds.size === 0}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                >
+                  <svg
+                    className="w-5 h-5 fill-white"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 8V4l8 8-8 8v-4H4V8h8z" />
+                  </svg>
+                  <span className="text-[10px] text-white/70">Forward</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.star_button"
+                  onClick={() => {
+                    toast.success(`${selectedMsgIds.size} message(s) starred`);
+                    exitMultiSelect();
+                  }}
+                  disabled={selectedMsgIds.size === 0}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                >
+                  <Star className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Star</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.copy_button"
+                  onClick={() => {
+                    const texts = [...selectedMsgIds]
+                      .map((id) => {
+                        const m = localMessages.find((x) => x.id === id);
+                        return m?.content ?? "";
+                      })
+                      .filter(Boolean)
+                      .join("\n");
+                    navigator.clipboard?.writeText(texts).catch(() => {});
+                    toast.success("Copied to clipboard");
+                    exitMultiSelect();
+                  }}
+                  disabled={selectedMsgIds.size === 0}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                >
+                  <Copy className="w-5 h-5 text-white" />
+                  <span className="text-[10px] text-white/70">Copy</span>
+                </button>
+                <button
+                  type="button"
+                  data-ocid="chat.multiselect.delete_button"
+                  onClick={() => {
+                    setLocalMessages((prev) =>
+                      prev.filter((m) => !selectedMsgIds.has(m.id)),
+                    );
+                    toast.success(`${selectedMsgIds.size} message(s) deleted`);
+                    exitMultiSelect();
+                  }}
+                  disabled={selectedMsgIds.size === 0}
+                  className="flex flex-col items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-40"
+                >
+                  <Trash2 className="w-5 h-5 text-red-400" />
+                  <span className="text-[10px] text-red-400/80">Delete</span>
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hidden file inputs */}
       <input
@@ -2776,6 +3389,10 @@ export default function ChatViewScreen({
                 "7d": "7 days",
                 "90d": "90 days",
               };
+              localStorage.setItem(
+                `wa_disappear_${conversationId}`,
+                selectedDisappearing,
+              );
               toast.success(
                 `Disappearing messages: ${labels[selectedDisappearing]}`,
               );

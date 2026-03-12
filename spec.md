@@ -1,35 +1,27 @@
-# WhatsApp Clone UI - Version 23
+# WhatsApp Clone UI - Stage 27
 
 ## Current State
-Full-featured WhatsApp clone with 22 stages of features including messaging, calls, status, communities, business profile (basic), marketplace, secret chats, live streaming, backup/restore, and event scheduling.
+Full WhatsApp-style mobile app with 26 stages of features including: auth flow, chat system, group chats, status/stories, channels, calls, business profile, reactions, reply threading, group admin tools, secret chats, marketplace, live streaming, event scheduling, AI assistant, WhatsApp Pay, and all previous UX polish.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Enhanced Business Profile screen with full WhatsApp Business-level detail
-- Business Settings screen with all business configuration options
-- Business Profile editor: name, category, description, working hours, address, website, email
-- Verified business badge display
-- Auto-reply message configuration (greeting, away, quick replies)
-- Business hours schedule (per day open/close times)
-- Business catalog settings (manage products/services)
-- Customer labels management (create, edit, delete labels)
-- Business statistics screen (message stats, response rate)
-- Business account toggle (switch between personal/business mode)
+- **Channel Management Improvements**: Channel admin panel with subscriber count, post analytics, mute/unmute channel, delete channel, channel link sharing, pin posts in channel
+- **Disappearing Messages Enhancements**: Per-chat disappearing message timer selector (24h/7d/90d), visual countdown on messages near expiry, "disappearing messages on" banner in chat, auto-clear on timer
+- **Advanced Call Features**: Call waiting indicator, call recording simulation ("Recording" badge), add participants during call, call notes (post-call memo screen), call quality indicator (signal bars)
 
 ### Modify
-- Settings screen: add Business section with link to all business settings
-- Profile screen: show business badge and category when in business mode
+- Existing channel viewer to show admin controls when user is channel owner
+- Existing call screen to include new controls
+- Chat info screen to include disappearing message setting
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. BusinessProfilePage - full profile editor with all fields
-2. BusinessSettingsPage - hub for all business settings
-3. BusinessHoursPage - per-day schedule editor
-4. AutoReplyPage - greeting, away, quick replies management
-5. CustomerLabelsPage - label CRUD
-6. BusinessStatsPage - simulated stats dashboard
-7. Update Settings to link to business hub
-8. Business mode toggle in Settings > Account
+1. Add ChannelAdminPanel component with analytics, pin post, share link, delete channel
+2. Add DisappearingMessagesBanner in chat header when enabled
+3. Add disappearing timer selector in chat info/settings
+4. Add visual expiry indicator on messages with disappearing mode active
+5. Enhance CallScreen with call waiting, add participant, recording badge, signal bars, post-call notes modal
+6. Wire all new UI into existing navigation without breaking any existing routes

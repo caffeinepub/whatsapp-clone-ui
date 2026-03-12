@@ -14,10 +14,21 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Camera, Image, Megaphone, MoreVertical, Pencil } from "lucide-react";
+import {
+  Camera,
+  Image,
+  Megaphone,
+  MoreVertical,
+  Pencil,
+  Settings,
+} from "lucide-react";
+import { AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import CameraModal from "../components/CameraModal";
+import ChannelAdminPanel, {
+  type Channel,
+} from "../components/ChannelAdminPanel";
 import ContactAvatar from "../components/ContactAvatar";
 import StatusPostDialog from "../components/StatusPostDialog";
 import type { UserStatus } from "../hooks/useAppState";
@@ -37,6 +48,7 @@ const RECENT_UPDATES = [
     time: "2 minutes ago",
     viewed: false,
     colorIndex: 0,
+    replyCount: 3,
   },
   {
     name: "Marcus Chen",
@@ -44,6 +56,7 @@ const RECENT_UPDATES = [
     time: "15 minutes ago",
     viewed: false,
     colorIndex: 1,
+    replyCount: 7,
   },
   {
     name: "Priya Sharma",
@@ -51,6 +64,7 @@ const RECENT_UPDATES = [
     time: "1 hour ago",
     viewed: true,
     colorIndex: 4,
+    replyCount: 1,
   },
   {
     name: "Jordan Williams",
@@ -58,6 +72,7 @@ const RECENT_UPDATES = [
     time: "3 hours ago",
     viewed: true,
     colorIndex: 3,
+    replyCount: 0,
   },
 ];
 
@@ -95,10 +110,27 @@ export default function StatusScreen({
   const [privacyOption, setPrivacyOption] = useState("contacts");
   const [channelName, setChannelName] = useState("");
   const [channelDesc, setChannelDesc] = useState("");
-  const [channels, setChannels] = useState([
-    { name: "Tech News Daily", subs: "128K subscribers" },
-    { name: "Mumbai Local Updates", subs: "45K subscribers" },
+  const [channels, setChannels] = useState<Channel[]>([
+    {
+      name: "Tech News Daily",
+      subs: "128K subscribers",
+      isOwner: true,
+      subscribers: 128450,
+      views: 2340887,
+      muted: false,
+      pinnedPostId: null,
+    },
+    {
+      name: "Mumbai Local Updates",
+      subs: "45K subscribers",
+      isOwner: false,
+      subscribers: 45200,
+      views: 890000,
+      muted: false,
+      pinnedPostId: null,
+    },
   ]);
+  const [adminChannel, setAdminChannel] = useState<Channel | null>(null);
 
   const [highlights, setHighlights] = useState<
     { id: string; label: string; colorIndex: number }[]
@@ -340,8 +372,14 @@ export default function StatusScreen({
                   <p className="font-semibold text-[15px] text-foreground font-display">
                     {item.name}
                   </p>
-                  <p className="text-[13px] text-muted-foreground">
+                  <p className="text-[13px] text-muted-foreground flex items-center gap-1.5">
                     {item.time}
+                    {item.replyCount > 0 && (
+                      <span className="text-[11px] text-[#00a884] font-medium">
+                        · {item.replyCount}{" "}
+                        {item.replyCount === 1 ? "reply" : "replies"}
+                      </span>
+                    )}
                   </p>
                 </div>
               </button>
@@ -402,21 +440,41 @@ export default function StatusScreen({
             </div>
             <div className="space-y-1">
               {channels.map((ch, i) => (
-                <div
-                  key={ch.name}
-                  data-ocid={`status.channel.item.${i + 1}`}
-                  className="flex items-center gap-3 py-2 px-2"
-                >
-                  <div className="w-11 h-11 bg-[#25D366]/15 rounded-full flex items-center justify-center">
-                    <span className="text-[18px]">📢</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[15px] text-foreground font-display">
-                      {ch.name}
-                    </p>
-                    <p className="text-[12px] text-muted-foreground">
-                      {ch.subs}
-                    </p>
+                <div key={ch.name} className="space-y-1">
+                  {ch.pinnedPostId && (
+                    <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-xl px-3 py-2 mx-1">
+                      <span className="text-yellow-400 text-[13px]">📌</span>
+                      <p className="text-[12px] text-yellow-300 font-medium">
+                        Pinned: {ch.pinnedPostId}
+                      </p>
+                    </div>
+                  )}
+                  <div
+                    data-ocid={`status.channel.item.${i + 1}`}
+                    className="flex items-center gap-3 py-2 px-2"
+                  >
+                    <div className="w-11 h-11 bg-[#25D366]/15 rounded-full flex items-center justify-center">
+                      <span className="text-[18px]">📢</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[15px] text-foreground font-display">
+                        {ch.name}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground">
+                        {ch.subs}
+                      </p>
+                    </div>
+                    {ch.isOwner && (
+                      <button
+                        type="button"
+                        data-ocid={`status.channel.admin.button.${i + 1}`}
+                        onClick={() => setAdminChannel(ch)}
+                        className="w-8 h-8 rounded-full bg-[#25D366]/10 flex items-center justify-center hover:bg-[#25D366]/20 transition-colors"
+                        aria-label="Channel admin panel"
+                      >
+                        <Settings className="w-4 h-4 text-[#25D366]" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -424,6 +482,27 @@ export default function StatusScreen({
           </div>
         )}
       </main>
+
+      <AnimatePresence>
+        {adminChannel && (
+          <ChannelAdminPanel
+            channel={adminChannel}
+            onBack={() => setAdminChannel(null)}
+            onDelete={() => {
+              setChannels((prev) =>
+                prev.filter((c) => c.name !== adminChannel.name),
+              );
+              setAdminChannel(null);
+            }}
+            onUpdate={(updated) => {
+              setChannels((prev) =>
+                prev.map((c) => (c.name === updated.name ? updated : c)),
+              );
+              setAdminChannel(updated);
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       <StatusPostDialog
         open={postDialogOpen}

@@ -22,6 +22,7 @@ import ChatLockScreen from "./pages/ChatLockScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
 import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
+import GroupAdminScreen from "./pages/GroupAdminScreen";
 import LinkedDevicesScreen from "./pages/LinkedDevicesScreen";
 import LoginScreen from "./pages/LoginScreen";
 import MarketplaceScreen from "./pages/MarketplaceScreen";
@@ -143,6 +144,7 @@ export default function App() {
   const [secretChatsOpen, setSecretChatsOpen] = useState(false);
   const [chatBackupOpen, setChatBackupOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const [groupAdminOpen, setGroupAdminOpen] = useState(false);
   const [appLocked, setAppLocked] = useState(() => {
     return localStorage.getItem("wa_app_lock_enabled") === "1";
   });
@@ -350,6 +352,7 @@ export default function App() {
             onBack={handleCloseChat}
             onOpenCall={appState.openCall}
             wallpaper={appState.wallpaper}
+            onOpenGroupAdmin={() => setGroupAdminOpen(true)}
             onOpenMediaGallery={(contactName) =>
               setMediaGalleryFor(contactName)
             }
@@ -479,6 +482,9 @@ export default function App() {
         )}
         {marketplaceOpen && (
           <MarketplaceScreen onBack={() => setMarketplaceOpen(false)} />
+        )}
+        {groupAdminOpen && (
+          <GroupAdminScreen onBack={() => setGroupAdminOpen(false)} />
         )}
         <AdvancedSearchScreen
           open={advancedSearchOpen}
