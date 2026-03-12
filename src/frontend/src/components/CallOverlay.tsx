@@ -1,6 +1,7 @@
 import {
   Camera,
   CameraOff,
+  Hand,
   Mic,
   MicOff,
   Phone,
@@ -8,9 +9,10 @@ import {
   RotateCcw,
   Volume2,
   VolumeX,
+  ZapOff,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActiveCall } from "../hooks/useAppState";
 import ContactAvatar from "./ContactAvatar";
 
@@ -21,11 +23,19 @@ interface CallOverlayProps {
 
 type CallState = "ringing" | "connecting" | "connected";
 
+interface FloatingEmoji {
+  id: number;
+  emoji: string;
+  x: number;
+}
+
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+
+const CALL_EMOJIS = ["❤️", "👍", "😂", "😮", "🔥", "👏"];
 
 export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
   const [elapsed, setElapsed] = useState(0);
@@ -33,8 +43,11 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
   const [speakerOn, setSpeakerOn] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
   const [callState, setCallState] = useState<CallState>("ringing");
+  const [handRaised, setHandRaised] = useState(false);
+  const [blurBg, setBlurBg] = useState(false);
+  const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
+  const emojiCounterRef = useRef(0);
 
-  // Simulate ringing → connecting → connected
   useEffect(() => {
     const t1 = setTimeout(() => setCallState("connecting"), 2000);
     const t2 = setTimeout(() => setCallState("connected"), 3500);
@@ -44,7 +57,6 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
     };
   }, []);
 
-  // Ringing tone using Web Audio API
   useEffect(() => {
     if (callState !== "ringing" && callState !== "connecting") return;
     let ctx: AudioContext | null = null;
@@ -78,7 +90,6 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
     };
   }, [callState]);
 
-  // Start timer when connected
   useEffect(() => {
     if (callState !== "connected") return;
     const interval = setInterval(() => {
@@ -86,6 +97,15 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
     }, 1000);
     return () => clearInterval(interval);
   }, [callState]);
+
+  const sendEmoji = useCallback((emoji: string) => {
+    const id = ++emojiCounterRef.current;
+    const x = 20 + Math.random() * 60;
+    setFloatingEmojis((prev) => [...prev, { id, emoji, x }]);
+    setTimeout(() => {
+      setFloatingEmojis((prev) => prev.filter((e) => e.id !== id));
+    }, 2500);
+  }, []);
 
   const handleEnd = useCallback(() => {
     onEnd();
@@ -111,13 +131,32 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
           "linear-gradient(160deg, oklch(0.22 0.04 220), oklch(0.12 0.02 240))",
       }}
     >
-      {/* Call type label */}
+      {/* Floating emoji reactions */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <AnimatePresence>
+          {floatingEmojis.map((fe) => (
+            <motion.span
+              key={fe.id}
+              initial={{ opacity: 1, y: 0, scale: 1 }}
+              animate={{ opacity: 0, y: -200, scale: 1.4 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2.2, ease: "easeOut" }}
+              className="absolute bottom-32 text-3xl"
+              style={{ left: `${fe.x}%` }}
+            >
+              {fe.emoji}
+            </motion.span>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Top section */}
       <div className="flex flex-col items-center gap-4 mt-8 w-full">
         <p className="text-white/60 text-sm font-medium tracking-widest uppercase">
           {call.kind === "video" ? "Video Call" : "Voice Call"}
         </p>
 
-        {/* Ringing pulse ring animation */}
+        {/* Avatar with pulse rings */}
         <div className="relative">
           {callState === "ringing" && (
             <>
@@ -128,17 +167,50 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
               />
             </>
           )}
-          <ContactAvatar
-            initials={call.initials}
-            size="lg"
-            colorIndex={call.colorIndex}
-          />
+          {/* Pulse ring when connected */}
+          {callState === "connected" && (
+            <motion.span
+              className="absolute inset-[-8px] rounded-full border-2 border-green-400/30"
+              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0.15, 0.5] }}
+              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
+            />
+          )}
+          <div
+            style={{
+              filter: blurBg ? "blur(0px)" : "none",
+              transition: "filter 0.4s",
+            }}
+          >
+            <ContactAvatar
+              initials={call.initials}
+              size="lg"
+              colorIndex={call.colorIndex}
+            />
+          </div>
+          {blurBg && (
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                backdropFilter: "blur(12px)",
+                background: "rgba(0,0,0,0.4)",
+              }}
+            />
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-1 mt-2">
-          <h2 className="text-white text-2xl font-bold font-display">
-            {call.name}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-white text-2xl font-bold">{call.name}</h2>
+            {handRaised && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="text-xl"
+              >
+                ✋
+              </motion.span>
+            )}
+          </div>
           <AnimatePresence mode="wait">
             <motion.p
               key={statusText}
@@ -152,21 +224,94 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
             </motion.p>
           </AnimatePresence>
         </div>
+
+        {/* Emoji reaction bar */}
+        {callState === "connected" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 mt-1"
+          >
+            {CALL_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                data-ocid="call.emoji.button"
+                onClick={() => sendEmoji(emoji)}
+                className="text-xl active:scale-125 transition-transform"
+              >
+                {emoji}
+              </button>
+            ))}
+          </motion.div>
+        )}
       </div>
 
-      {/* Action buttons */}
+      {/* Side controls */}
+      {callState === "connected" && (
+        <div className="absolute top-32 right-4 flex flex-col gap-3">
+          {/* Background blur */}
+          <button
+            type="button"
+            data-ocid="call.blur.toggle"
+            onClick={() => setBlurBg((v) => !v)}
+            aria-label="Toggle background blur"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+              blurBg ? "bg-white/30" : "bg-white/15"
+            }`}
+          >
+            <ZapOff className="w-4 h-4 text-white" />
+          </button>
+          {/* Raise hand */}
+          <button
+            type="button"
+            data-ocid="call.raise_hand.toggle"
+            onClick={() => setHandRaised((v) => !v)}
+            aria-label="Raise hand"
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+              handRaised ? "bg-yellow-400/60" : "bg-white/15"
+            }`}
+          >
+            <Hand className="w-4 h-4 text-white" />
+          </button>
+          {/* Video toggle */}
+          {call.kind === "video" && (
+            <button
+              type="button"
+              data-ocid="call.video.toggle"
+              onClick={() => setVideoOff((v) => !v)}
+              className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
+            >
+              {videoOff ? (
+                <CameraOff className="w-4 h-4 text-white" />
+              ) : (
+                <Camera className="w-4 h-4 text-white" />
+              )}
+            </button>
+          )}
+          {call.kind === "video" && (
+            <button
+              type="button"
+              data-ocid="call.camera.flip.button"
+              className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center"
+            >
+              <RotateCcw className="w-4 h-4 text-white" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Bottom action buttons */}
       <div className="flex items-end justify-center gap-6 w-full">
-        {/* Mute */}
         <button
           type="button"
           data-ocid="call.toggle"
           onClick={() => setMuted((v) => !v)}
-          aria-label={muted ? "Unmute" : "Mute"}
           className="flex flex-col items-center gap-2"
         >
           <div
             className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              muted ? "bg-white/30" : "bg-white/15 hover:bg-white/25"
+              muted ? "bg-white/30" : "bg-white/15"
             }`}
           >
             {muted ? (
@@ -180,31 +325,27 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
           </span>
         </button>
 
-        {/* End call */}
         <button
           type="button"
           data-ocid="call.delete_button"
           onClick={handleEnd}
-          aria-label="End call"
           className="flex flex-col items-center gap-2"
         >
-          <div className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-center shadow-lg transition-colors">
+          <div className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-lg">
             <PhoneOff className="w-7 h-7 text-white" />
           </div>
           <span className="text-white/60 text-xs">End</span>
         </button>
 
-        {/* Speaker */}
         <button
           type="button"
           data-ocid="call.secondary_button"
           onClick={() => setSpeakerOn((v) => !v)}
-          aria-label={speakerOn ? "Speaker off" : "Speaker on"}
           className="flex flex-col items-center gap-2"
         >
           <div
             className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              speakerOn ? "bg-white/30" : "bg-white/15 hover:bg-white/25"
+              speakerOn ? "bg-white/30" : "bg-white/15"
             }`}
           >
             {speakerOn ? (
@@ -219,34 +360,7 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
         </button>
       </div>
 
-      {/* Video controls (only for video calls) */}
-      {call.kind === "video" && (
-        <div className="absolute top-32 right-6 flex flex-col gap-3">
-          <button
-            type="button"
-            data-ocid="call.video.toggle"
-            onClick={() => setVideoOff((v) => !v)}
-            aria-label={videoOff ? "Turn on camera" : "Turn off camera"}
-            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center"
-          >
-            {videoOff ? (
-              <CameraOff className="w-5 h-5 text-white" />
-            ) : (
-              <Camera className="w-5 h-5 text-white" />
-            )}
-          </button>
-          <button
-            type="button"
-            data-ocid="call.camera.flip.button"
-            aria-label="Flip camera"
-            className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center"
-          >
-            <RotateCcw className="w-5 h-5 text-white" />
-          </button>
-        </div>
-      )}
-
-      {/* Accept/Decline for incoming calls */}
+      {/* Incoming call accept/decline */}
       {call.incoming && callState === "ringing" && (
         <div className="absolute bottom-16 left-0 right-0 flex items-center justify-center gap-16">
           <button
@@ -255,7 +369,7 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
             onClick={handleEnd}
             className="flex flex-col items-center gap-2"
           >
-            <div className="w-16 h-16 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center">
               <PhoneOff className="w-7 h-7 text-white" />
             </div>
             <span className="text-white/60 text-xs">Decline</span>
@@ -266,7 +380,7 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
             onClick={() => setCallState("connected")}
             className="flex flex-col items-center gap-2"
           >
-            <div className="w-16 h-16 rounded-full bg-green-500 hover:bg-green-600 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
               <Phone className="w-7 h-7 text-white" />
             </div>
             <span className="text-white/60 text-xs">Accept</span>

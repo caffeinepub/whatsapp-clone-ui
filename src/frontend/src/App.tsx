@@ -10,10 +10,13 @@ import QRCodeScreen from "./components/QRCodeScreen";
 import StarredMessagesScreen from "./components/StarredMessagesScreen";
 import StatusViewer from "./components/StatusViewer";
 import { useAppState } from "./hooks/useAppState";
+import AIChatScreen from "./pages/AIChatScreen";
 import AppLockScreen from "./pages/AppLockScreen";
 import BlockedContactsScreen from "./pages/BlockedContactsScreen";
 import BusinessProfileScreen from "./pages/BusinessProfileScreen";
+import BusinessSettingsScreen from "./pages/BusinessSettingsScreen";
 import CallsScreen from "./pages/CallsScreen";
+import ChatBackupScreen from "./pages/ChatBackupScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatLockScreen from "./pages/ChatLockScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
@@ -21,11 +24,14 @@ import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
 import LinkedDevicesScreen from "./pages/LinkedDevicesScreen";
 import LoginScreen from "./pages/LoginScreen";
+import MarketplaceScreen from "./pages/MarketplaceScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
+import NotificationsCenterScreen from "./pages/NotificationsCenterScreen";
 import OTPScreen from "./pages/OTPScreen";
 import PaymentsScreen from "./pages/PaymentsScreen";
 import ProfileCreationScreen from "./pages/ProfileCreationScreen";
 import QuickRepliesSettingsScreen from "./pages/QuickRepliesSettingsScreen";
+import SecretChatsScreen from "./pages/SecretChatsScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import SplashScreen from "./pages/SplashScreen";
 import StatusScreen from "./pages/StatusScreen";
@@ -65,12 +71,7 @@ const RECENT_STATUS_LIST = [
     time: "15 minutes ago",
     colorIndex: 1,
   },
-  {
-    name: "Priya Sharma",
-    initials: "PS",
-    time: "1 hour ago",
-    colorIndex: 4,
-  },
+  { name: "Priya Sharma", initials: "PS", time: "1 hour ago", colorIndex: 4 },
   {
     name: "Jordan Williams",
     initials: "JW",
@@ -85,7 +86,6 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
-// Wrapper that shows a phone frame on desktop, full-screen on mobile
 function MobileFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-center min-h-screen min-h-[100dvh] bg-[#111b21] md:bg-muted/50">
@@ -106,14 +106,12 @@ function MobileFrame({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  // Auth flow
   const [authState, setAuthState] = useState<AuthState>(() => {
     return localStorage.getItem("wa_auth_done") === "1" ? "app" : "splash";
   });
   const [loginMethod, setLoginMethod] = useState<"phone" | "email">("phone");
   const [loginValue, setLoginValue] = useState("");
 
-  // Main app state
   const [activeTab, setActiveTab] = useState<TabName>("chats");
   const handleTabChange = (tab: TabName) => {
     setActiveTab(tab);
@@ -127,7 +125,7 @@ export default function App() {
     typeof SEED_EXTRA_CONVS
   >([]);
 
-  // Stage 6 overlay states
+  // Overlay states
   const [starredOpen, setStarredOpen] = useState(false);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [qrCodeOpen, setQrCodeOpen] = useState(false);
@@ -138,11 +136,18 @@ export default function App() {
   const [linkedDevicesOpen, setLinkedDevicesOpen] = useState(false);
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
   const [businessProfileOpen, setBusinessProfileOpen] = useState(false);
+  const [businessSettingsOpen, setBusinessSettingsOpen] = useState(false);
   const [blockedContactsOpen, setBlockedContactsOpen] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [secretChatsOpen, setSecretChatsOpen] = useState(false);
+  const [chatBackupOpen, setChatBackupOpen] = useState(false);
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [appLocked, setAppLocked] = useState(() => {
     return localStorage.getItem("wa_app_lock_enabled") === "1";
   });
   const [missedCallsCount, setMissedCallsCount] = useState(3);
+  const [notificationCount] = useState(5);
   const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
 
   const appState = useAppState();
@@ -180,7 +185,6 @@ export default function App() {
   const handleOpenChat = (conversationId: bigint) => {
     setOpenConversationId(conversationId);
   };
-
   const handleCloseChat = () => {
     setOpenConversationId(null);
   };
@@ -232,7 +236,6 @@ export default function App() {
       </MobileFrame>
     );
   }
-
   if (authState === "login") {
     return (
       <MobileFrame>
@@ -252,7 +255,6 @@ export default function App() {
       </MobileFrame>
     );
   }
-
   if (authState === "otp") {
     return (
       <MobileFrame>
@@ -277,7 +279,6 @@ export default function App() {
       </MobileFrame>
     );
   }
-
   if (authState === "profile") {
     return (
       <MobileFrame>
@@ -298,7 +299,6 @@ export default function App() {
     );
   }
 
-  // App lock screen
   if (appLocked && localStorage.getItem("wa_app_lock_enabled") === "1") {
     const savedPin = localStorage.getItem("wa_app_lock_pin") ?? "0000";
     return (
@@ -312,12 +312,28 @@ export default function App() {
     );
   }
 
-  // --- Main app ---
+  // Full-screen overlays
+  if (aiChatOpen) {
+    return (
+      <MobileFrame>
+        <AIChatScreen onBack={() => setAiChatOpen(false)} />
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
+    );
+  }
+
+  if (notificationsOpen) {
+    return (
+      <MobileFrame>
+        <NotificationsCenterScreen onBack={() => setNotificationsOpen(false)} />
+        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
+    );
+  }
+
   return (
     <MobileFrame>
-      {/* Main content area */}
       <div className="flex-1 overflow-hidden relative">
-        {/* Contacts screen */}
         {appView === "contacts" ? (
           <ContactListScreen
             onBack={() => setAppView("main")}
@@ -382,9 +398,11 @@ export default function App() {
                 onOpenQuickReplies={() => setQuickRepliesOpen(true)}
                 onOpenTwoStep={() => setTwoStepOpen(true)}
                 onOpenLinkedDevices={() => setLinkedDevicesOpen(true)}
-                onOpenBusiness={() => setBusinessProfileOpen(true)}
+                onOpenBusiness={() => setBusinessSettingsOpen(true)}
                 onOpenAppLock={() => setAppLocked(true)}
                 onOpenBlockedContacts={() => setBlockedContactsOpen(true)}
+                onOpenSecretChats={() => setSecretChatsOpen(true)}
+                onOpenChatBackup={() => setChatBackupOpen(true)}
               />
             )}
           </>
@@ -395,7 +413,7 @@ export default function App() {
           <CallOverlay call={appState.activeCall} onEnd={appState.endCall} />
         )}
 
-        {/* Status viewer overlay */}
+        {/* Status viewer */}
         {appState.statusViewerOpen && (
           <StatusViewer
             statusList={RECENT_STATUS_LIST}
@@ -404,7 +422,7 @@ export default function App() {
           />
         )}
 
-        {/* Overlays */}
+        {/* Standard overlays */}
         {starredOpen && (
           <StarredMessagesScreen onBack={() => setStarredOpen(false)} />
         )}
@@ -438,19 +456,76 @@ export default function App() {
         {linkedDevicesOpen && (
           <LinkedDevicesScreen onBack={() => setLinkedDevicesOpen(false)} />
         )}
+        {businessSettingsOpen && (
+          <BusinessSettingsScreen
+            onBack={() => setBusinessSettingsOpen(false)}
+            onOpenMarketplace={() => {
+              setBusinessSettingsOpen(false);
+              setMarketplaceOpen(true);
+            }}
+          />
+        )}
         {businessProfileOpen && (
           <BusinessProfileScreen onBack={() => setBusinessProfileOpen(false)} />
         )}
         {blockedContactsOpen && (
           <BlockedContactsScreen onBack={() => setBlockedContactsOpen(false)} />
         )}
+        {secretChatsOpen && (
+          <SecretChatsScreen onBack={() => setSecretChatsOpen(false)} />
+        )}
+        {chatBackupOpen && (
+          <ChatBackupScreen onBack={() => setChatBackupOpen(false)} />
+        )}
+        {marketplaceOpen && (
+          <MarketplaceScreen onBack={() => setMarketplaceOpen(false)} />
+        )}
         <AdvancedSearchScreen
           open={advancedSearchOpen}
           onClose={() => setAdvancedSearchOpen(false)}
         />
+
+        {/* Meta AI floating button (only on chats tab) */}
+        {activeTab === "chats" &&
+          openConversationId === null &&
+          appView === "main" && (
+            <button
+              type="button"
+              data-ocid="ai_chat.open_modal_button"
+              onClick={() => setAiChatOpen(true)}
+              className="absolute bottom-4 right-4 w-13 h-13 rounded-full shadow-lg flex items-center justify-center z-40"
+              style={{
+                width: 52,
+                height: 52,
+                background: "linear-gradient(135deg, #7C3AED, #2563EB)",
+                boxShadow: "0 4px 20px rgba(124,58,237,0.5)",
+              }}
+              aria-label="Meta AI"
+            >
+              <span className="text-2xl">✨</span>
+            </button>
+          )}
+
+        {/* Notifications bell (only on chats tab) */}
+        {activeTab === "chats" &&
+          openConversationId === null &&
+          appView === "main" &&
+          notificationCount > 0 && (
+            <button
+              type="button"
+              data-ocid="notifications.open_modal_button"
+              onClick={() => setNotificationsOpen(true)}
+              className="absolute top-3 right-16 w-9 h-9 rounded-full bg-card border border-border flex items-center justify-center z-40 shadow-md"
+              aria-label="Notifications"
+            >
+              <span className="text-[13px]">🔔</span>
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] text-white font-bold flex items-center justify-center">
+                {notificationCount}
+              </span>
+            </button>
+          )}
       </div>
 
-      {/* Bottom nav */}
       {openConversationId === null && appView === "main" && (
         <BottomNav
           activeTab={activeTab}
@@ -459,14 +534,11 @@ export default function App() {
         />
       )}
 
-      {/* Toaster always at top */}
       <Toaster
         position="top-center"
         richColors
         closeButton
-        toastOptions={{
-          style: { marginTop: "env(safe-area-inset-top, 8px)" },
-        }}
+        toastOptions={{ style: { marginTop: "env(safe-area-inset-top, 8px)" } }}
       />
     </MobileFrame>
   );

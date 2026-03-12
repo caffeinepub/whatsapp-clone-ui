@@ -53,6 +53,8 @@ interface SettingsScreenProps {
   onOpenBusiness?: () => void;
   onOpenAppLock?: () => void;
   onOpenBlockedContacts?: () => void;
+  onOpenSecretChats?: () => void;
+  onOpenChatBackup?: () => void;
 }
 
 function SettingRow({
@@ -254,6 +256,8 @@ export default function SettingsScreen({
   onOpenBusiness,
   onOpenAppLock: _onOpenAppLock,
   onOpenBlockedContacts,
+  onOpenSecretChats,
+  onOpenChatBackup,
 }: SettingsScreenProps) {
   const [openPanel, setOpenPanel] = useState<PanelId>(null);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -376,6 +380,8 @@ export default function SettingsScreen({
                       onClick={() => {
                         if (item.id === "storage" && onOpenStorage) {
                           onOpenStorage();
+                        } else if (item.id === "backup" && onOpenChatBackup) {
+                          onOpenChatBackup();
                         } else if (
                           item.id === "linked" &&
                           onOpenLinkedDevices
@@ -469,7 +475,15 @@ export default function SettingsScreen({
             value="Set up PIN"
             onClick={onOpenTwoStep}
           />
-          <SettingButton label="Business Platform" />
+          <SettingButton
+            label="Business Account"
+            onClick={onOpenBusiness}
+            value={
+              localStorage.getItem("businessMode") === "true"
+                ? "Active"
+                : undefined
+            }
+          />
           <SettingButton label="Quick Replies" onClick={onOpenQuickReplies} />
           <SettingButton label="Change phone number" />
           <SettingButton label="Request account info" />
@@ -624,6 +638,26 @@ export default function SettingsScreen({
               </p>
               <p className="text-[12px] text-muted-foreground mt-0.5">
                 Manage blocked contacts
+              </p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </button>
+          <Separator className="ml-4" />
+          <button
+            type="button"
+            data-ocid="settings.privacy.secret_chats.button"
+            onClick={() => {
+              setOpenPanel(null);
+              onOpenSecretChats?.();
+            }}
+            className="flex items-center justify-between w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
+          >
+            <div>
+              <p className="font-medium text-[15px] text-foreground">
+                Secret Chats
+              </p>
+              <p className="text-[12px] text-muted-foreground mt-0.5">
+                Hidden end-to-end encrypted chats
               </p>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -1010,6 +1044,10 @@ export default function SettingsScreen({
           <button
             type="button"
             data-ocid="settings.chats.backup.button"
+            onClick={() => {
+              setOpenPanel(null);
+              onOpenChatBackup?.();
+            }}
             className="flex items-center gap-4 w-full px-4 py-3.5 hover:bg-muted/40 transition-colors text-left"
           >
             <div className="w-9 h-9 rounded-xl bg-muted/60 flex items-center justify-center">

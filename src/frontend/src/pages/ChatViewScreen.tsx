@@ -63,6 +63,7 @@ import EmojiPicker from "../components/EmojiPicker";
 import ForwardMessageSheet from "../components/ForwardMessageSheet";
 import InAppBrowser from "../components/InAppBrowser";
 import LiveLocationModal from "../components/LiveLocationModal";
+import LiveStreamModal from "../components/LiveStreamModal";
 import MessageContextMenu, {
   type ChatMessage,
 } from "../components/MessageContextMenu";
@@ -81,6 +82,7 @@ import {
   useMessages,
   useSendMessage,
 } from "../hooks/useQueries";
+import MarketplaceScreen from "./MarketplaceScreen";
 
 interface ChatViewScreenProps {
   conversationId: bigint;
@@ -743,6 +745,8 @@ export default function ChatViewScreen({
   const [browserUrl, setBrowserUrl] = useState<string | null>(null);
   // Live location
   const [showLiveLocation, setShowLiveLocation] = useState(false);
+  const [showLiveStream, setShowLiveStream] = useState(false);
+  const [showMarketplace, setShowMarketplace] = useState(false);
   const [pinnedMessage, setPinnedMessage] = useState<ChatMessage | null>(null);
   const [pinnedDismissed, setPinnedDismissed] = useState(false);
   // Stage 17: multi-pin support
@@ -1502,6 +1506,15 @@ export default function ChatViewScreen({
                 >
                   Block
                 </DropdownMenuItem>
+                {isGroupChat && (
+                  <DropdownMenuItem
+                    data-ocid="chat.menu.go_live"
+                    className="text-[14px] py-2.5 cursor-pointer text-red-500"
+                    onClick={() => setShowLiveStream(true)}
+                  >
+                    🔴 Go Live
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -2281,6 +2294,22 @@ export default function ChatViewScreen({
                 <span className="text-[11px] text-foreground">Poll</span>
               </button>
 
+              {/* Marketplace */}
+              <button
+                type="button"
+                data-ocid="chat.attach.marketplace.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  setShowMarketplace(true);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div className="w-[52px] h-[52px] bg-green-700 rounded-2xl flex items-center justify-center">
+                  <span className="text-[22px]">🛍️</span>
+                </div>
+                <span className="text-[11px] text-foreground">Marketplace</span>
+              </button>
+
               {/* Event */}
               <button
                 type="button"
@@ -2409,6 +2438,22 @@ export default function ChatViewScreen({
         })()}
       {showLiveLocation && (
         <LiveLocationModal onClose={() => setShowLiveLocation(false)} />
+      )}
+      {showLiveStream && (
+        <LiveStreamModal
+          onClose={() => setShowLiveStream(false)}
+          isHost={true}
+          hostName={isGroupChat ? "You" : contactName}
+        />
+      )}
+      {showMarketplace && (
+        <MarketplaceScreen
+          onBack={() => setShowMarketplace(false)}
+          onSendProductCard={(name, price) => {
+            sendMsg(`🛍️ ${name} — ₹${price.toLocaleString()}
+[Order via Marketplace]`);
+          }}
+        />
       )}
       {browserUrl && (
         <InAppBrowser url={browserUrl} onClose={() => setBrowserUrl(null)} />
