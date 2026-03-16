@@ -1,42 +1,39 @@
-# WhatsApp Clone UI - Stage 31: Reels & Live Tabs
+# WhatsApp Clone UI -- Stage 40: Real Backend Integration
 
 ## Current State
-Full WhatsApp clone with 30 stages of features including chat, calls, status, payments, settings, business profile, group tools, etc. Bottom nav has: Chats, Updates, Communities, Calls.
+The app is a fully-featured frontend-only WhatsApp clone with 39 stages of UI features. All data is stored in localStorage/in-memory state. The Motoko backend has minimal functionality (contacts, conversations, messages). Authentication is simulated with no real OTP.
 
 ## Requested Changes (Diff)
 
 ### Add
-- **Reels tab** in bottom navigation (5th tab)
-  - Vertical full-screen video scroll (TikTok/Instagram Reels style)
-  - Like, Share, Comment, Save buttons on right side
-  - Comment sheet with reply, like comment, nested replies
-  - 3-dot menu for extra options (report, not interested, save, share to chat)
-  - Video progress bar at top
-  - Author info overlay at bottom
-- **Live tab** in bottom navigation (6th tab or merged with Reels)
-  - Live video streaming viewer UI
-  - Live chat panel with scrolling comments
-  - Like, Share, Comment actions
-  - Reply to comments in live chat
-  - Viewer count display
-  - "Send Live Request" button for users to request to go live
-  - Host controls: start live, end live
-  - Gift/reaction animations overlay
+- Real ICP authorization (Internet Identity based auth)
+- Extended Motoko backend: user profiles, real message storage with edit/delete/reactions, call records, status posts, file metadata
+- Blob storage for image/file/video sharing in chat
+- WebRTC frontend for real voice + video calls with ringing sound (Web Audio API)
+- Real-time message polling (2s interval) for live updates
+- Real profile editing persisted to backend
+- OTP authentication flow (6-digit code displayed in app since email/SMS not available on platform)
+- In-app notification sound for new messages
+- Real message reactions stored in backend
+- Real message edit + delete stored in backend
+- Real online/typing status via backend polling
 
 ### Modify
-- Bottom navigation: add Reels and Live tabs (adjust layout to fit 5-6 tabs or use icons only)
+- ChatViewScreen: wire to real backend messages, use blob-storage for media upload
+- LoginScreen/OTPScreen: integrate real auth flow
+- ProfileCreationScreen/SettingsScreen: save profile to backend
+- CallOverlay: add WebRTC peer connection + ringtone with Web Audio API
+- App.tsx: use authorization hooks for real user session
 
 ### Remove
-- Nothing removed
+- Nothing removed -- all 39 stages of UI features preserved
 
 ## Implementation Plan
-1. Add Reels tab with vertical swipe video feed (mock videos using colored placeholders + metadata)
-2. Add right-side action buttons: Like (with count), Comment (opens sheet), Share, Save
-3. Comment sheet: list of comments, reply button per comment, like comment, nested replies
-4. 3-dot extra options menu per reel
-5. Add Live tab with live stream viewer screen
-6. Live chat panel: scrolling comments, reply, like
-7. Live actions: like/share/comment
-8. Send Live Request modal
-9. Host live start/end flow
-10. Update bottom nav to include Reels and Live icons
+1. Select components: authorization, blob-storage
+2. Generate Motoko backend with: UserProfile, Message (with reactions/edits/deletes), Conversation, StatusPost, CallRecord, FileMetadata
+3. Build real auth flow with Internet Identity + OTP code display
+4. Wire ChatViewScreen to real backend messages + blob upload
+5. Add WebRTC call logic with ringing sound
+6. Add message polling for real-time updates
+7. Wire profile editing to backend
+8. Add notification sound on new messages

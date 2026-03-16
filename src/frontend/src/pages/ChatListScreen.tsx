@@ -22,13 +22,20 @@ import {
   UserPlus,
   VolumeX,
 } from "lucide-react";
+import { Clock } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Contact, Conversation } from "../backend.d";
 import CameraModal from "../components/CameraModal";
 import ChatLongPressSheet from "../components/ChatLongPressSheet";
 import ContactAvatar from "../components/ContactAvatar";
+import ContactProfileModal from "../components/ContactProfileModal";
 import NewChatScreen from "../components/NewChatScreen";
+import TempRoomModal, {
+  type TempRoom,
+  getTempRooms,
+  formatRoomCountdown,
+} from "../components/TempRoomModal";
 import { useContacts, useConversations } from "../hooks/useQueries";
 
 interface ExtraConversation {
@@ -49,6 +56,8 @@ interface ChatListScreenProps {
   onOpenStarred?: () => void;
   onOpenSettings?: () => void;
   onOpenContacts?: () => void;
+  onOpenMiniApps?: () => void;
+  onOpenAIMeeting?: () => void;
 }
 
 function formatTimestamp(ts?: bigint): string {
@@ -242,6 +251,8 @@ export default function ChatListScreen({
   onOpenStarred,
   onOpenSettings,
   onOpenContacts: _onOpenContacts,
+  onOpenMiniApps,
+  onOpenAIMeeting,
 }: ChatListScreenProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -249,6 +260,12 @@ export default function ChatListScreen({
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [longPressItem, setLongPressItem] =
     useState<SeedConversationItem | null>(null);
+  const [contactProfileItem, setContactProfileItem] = useState<{
+    name: string;
+    initials: string;
+    colorIndex: number;
+    id: bigint;
+  } | null>(null);
   const [avatarSheetItem, setAvatarSheetItem] = useState<{
     name: string;
     initials: string;
@@ -256,6 +273,8 @@ export default function ChatListScreen({
     id: bigint;
   } | null>(null);
   const [qrScanning, setQrScanning] = useState(false);
+  const [showTempRoomModal, setShowTempRoomModal] = useState(false);
+  const [tempRooms, setTempRooms] = useState<TempRoom[]>(() => getTempRooms());
   const [chatStates, setChatStates] = useState<
     Record<string, { isPinned: boolean; isMuted: boolean; isUnread: boolean }>
   >({});
@@ -395,6 +414,20 @@ export default function ChatListScreen({
                   onClick={onOpenStarred}
                 >
                   Starred
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="chatlist.menu.mini_apps"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenMiniApps}
+                >
+                  Mini Apps
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="chatlist.menu.ai_meeting"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={onOpenAIMeeting}
+                >
+                  AI Meeting Assistant
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chatlist.menu.settings"
@@ -643,6 +676,12 @@ export default function ChatListScreen({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setContactProfileItem({
+                      name: item.contactName,
+                      initials: item.initials,
+                      colorIndex: 0,
+                      id: item.id,
+                    });
                     setAvatarSheetItem({
                       name: item.contactName,
                       initials: item.initials,
@@ -716,6 +755,53 @@ export default function ChatListScreen({
               </p>
             </div>
           )}
+
+        {/* Temp Rooms */}
+        {tempRooms
+          .filter(
+            (r) =>
+              !searchQuery ||
+              r.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          )
+          .map((room, i) => {
+            const isExpired = room.expiresAt <= Date.now();
+            return (
+              <button
+                key={room.id}
+                type="button"
+                data-ocid={`temp_room.item.${i + 1}`}
+                onClick={() =>
+                  onOpenChat(BigInt(room.id.replace("temp_", "")) % 100n || 5n)
+                }
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 active:bg-muted/50 transition-colors text-left border-b border-border/20"
+              >
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${isExpired ? "bg-red-500/20" : "bg-wa-green/20"}`}
+                >
+                  <Clock
+                    className={`w-6 h-6 ${isExpired ? "text-red-500" : "text-wa-green"}`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[15px] font-semibold text-foreground truncate">
+                      {room.name}
+                    </p>
+                    <span className="text-[10px] bg-wa-green/15 text-wa-green px-1.5 py-0.5 rounded-full font-medium flex-shrink-0">
+                      TEMP
+                    </span>
+                  </div>
+                  <p
+                    className={`text-[12px] truncate ${isExpired ? "text-red-500" : "text-muted-foreground"}`}
+                  >
+                    {isExpired
+                      ? "🔴 This room has expired"
+                      : `⏱ ${formatRoomCountdown(room.expiresAt)}`}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
       </main>
 
       {/* FAB - Pencil opens NewChatScreen */}
@@ -728,6 +814,24 @@ export default function ChatListScreen({
       >
         <Pencil className="w-6 h-6 text-white" />
       </button>
+      {/* FAB - Temp Room */}
+      <button
+        type="button"
+        data-ocid="chatlist.temp_room.button"
+        onClick={() => setShowTempRoomModal(true)}
+        className="absolute bottom-36 right-4 w-12 h-12 bg-wa-teal rounded-full flex items-center justify-center shadow-lg hover:brightness-105 active:brightness-95 transition-all z-10"
+        aria-label="New temp room"
+        title="New Temp Room"
+      >
+        <Clock className="w-5 h-5 text-white" />
+      </button>
+
+      {/* Temp Room Modal */}
+      <TempRoomModal
+        open={showTempRoomModal}
+        onClose={() => setShowTempRoomModal(false)}
+        onCreated={(room) => setTempRooms((prev) => [...prev, room])}
+      />
 
       {/* Camera Modal */}
       <CameraModal open={cameraOpen} onClose={() => setCameraOpen(false)} />
@@ -737,6 +841,21 @@ export default function ChatListScreen({
         open={newChatOpen}
         onClose={() => setNewChatOpen(false)}
         onNewGroup={onNewGroup}
+      />
+
+      {/* Contact Profile Modal */}
+      <ContactProfileModal
+        open={!!contactProfileItem}
+        onClose={() => setContactProfileItem(null)}
+        contactName={contactProfileItem?.name ?? ""}
+        contactInitials={contactProfileItem?.initials ?? ""}
+        colorIndex={contactProfileItem?.colorIndex ?? 0}
+        onMessage={() => {
+          if (contactProfileItem) {
+            onOpenChat(contactProfileItem.id);
+            setContactProfileItem(null);
+          }
+        }}
       />
 
       {/* Avatar Profile Sheet */}

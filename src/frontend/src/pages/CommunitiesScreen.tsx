@@ -5,11 +5,13 @@ import {
   LogOut,
   MoreVertical,
   Plus,
+  Settings,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import CommunityDetailScreen from "../components/CommunityDetailScreen";
+import CommunityToolsScreen from "./CommunityToolsScreen";
 
 const COMMUNITY_COLORS = [
   "bg-emerald-600",
@@ -77,6 +79,8 @@ export default function CommunitiesScreen({
   const [communities, setCommunities] =
     useState<Community[]>(INITIAL_COMMUNITIES);
   const [openCommunity, setOpenCommunity] = useState<Community | null>(null);
+  const [communityToolsOpen, setCommunityToolsOpen] =
+    useState<Community | null>(null);
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [editCommunity, setEditCommunity] = useState<Community | null>(null);
   const [newName, setNewName] = useState("");
@@ -130,6 +134,15 @@ export default function CommunitiesScreen({
     toast.success(`Left ${c.name}`);
   };
 
+  if (communityToolsOpen) {
+    return (
+      <CommunityToolsScreen
+        communityName={communityToolsOpen.name}
+        onBack={() => setCommunityToolsOpen(null)}
+      />
+    );
+  }
+
   if (openCommunity) {
     return (
       <CommunityDetailScreen
@@ -138,6 +151,7 @@ export default function CommunitiesScreen({
         colorIndex={openCommunity.colorIndex}
         onBack={() => setOpenCommunity(null)}
         onOpenChat={onOpenChat}
+        onOpenTools={() => setCommunityToolsOpen(openCommunity)}
       />
     );
   }

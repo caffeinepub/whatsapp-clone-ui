@@ -139,7 +139,7 @@ export default function VoiceMessagePlayer({
           </div>
           <input
             type="range"
-            data-ocid="voice_player.toggle"
+            data-ocid="voice_player.seekbar"
             min={0}
             max={100}
             value={progress}

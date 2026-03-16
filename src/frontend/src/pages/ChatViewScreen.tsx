@@ -56,6 +56,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Message } from "../backend.d";
+import AISummaryModal from "../components/AISummaryModal";
 import CameraModal from "../components/CameraModal";
 import ChatThemeSheet, {
   THEME_HEX,
@@ -64,7 +65,9 @@ import ChatThemeSheet, {
 import type { ChatTheme } from "../components/ChatThemeSheet";
 import ContactAvatar from "../components/ContactAvatar";
 import ContactInfoScreen from "../components/ContactInfoScreen";
+import ContactProfileModal from "../components/ContactProfileModal";
 import ContactShareModal from "../components/ContactShareModal";
+import EditHistorySheet from "../components/EditHistorySheet";
 import EmojiPicker from "../components/EmojiPicker";
 import ForwardMessageSheet from "../components/ForwardMessageSheet";
 import InAppBrowser from "../components/InAppBrowser";
@@ -89,6 +92,7 @@ import QuickRepliesPanel from "../components/QuickRepliesPanel";
 import ScheduleMessageModal, {
   type ScheduledMsg,
 } from "../components/ScheduleMessageModal";
+import { formatRoomCountdown, getTempRooms } from "../components/TempRoomModal";
 import VoiceMessagePlayer from "../components/VoiceMessagePlayer";
 import type { ActiveCall, WallpaperType } from "../hooks/useAppState";
 import {
@@ -99,6 +103,7 @@ import {
   useSendMessage,
 } from "../hooks/useQueries";
 import MarketplaceScreen from "./MarketplaceScreen";
+import SharedNotesScreen from "./SharedNotesScreen";
 
 interface ChatViewScreenProps {
   conversationId: bigint;
@@ -107,6 +112,8 @@ interface ChatViewScreenProps {
   wallpaper?: WallpaperType;
   onOpenMediaGallery?: (contactName: string) => void;
   onOpenGroupAdmin?: () => void;
+  onOpenScreenShare?: (contactName: string) => void;
+  onOpenAIVoice?: () => void;
 }
 
 function formatMessageTime(ts: bigint): string {
@@ -333,27 +340,6 @@ function ReplyPreview({
   );
 }
 
-function TypingIndicator() {
-  return (
-    <div className="flex justify-start mb-2">
-      <div className="bg-wa-received rounded-2xl rounded-bl-sm px-3 py-2 shadow-bubble flex items-center gap-1">
-        <span
-          className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "0ms" }}
-        />
-        <span
-          className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "150ms" }}
-        />
-        <span
-          className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
-          style={{ animationDelay: "300ms" }}
-        />
-      </div>
-    </div>
-  );
-}
-
 // Link preview helper
 function extractUrl(text: string): string | null {
   const urlRegex = /https?:\/\/[^\s]+/;
@@ -441,6 +427,7 @@ function MessageBubble({
   onPhotoOpen,
   translatedText,
   onTickTap,
+  onEditHistoryOpen,
   onReactionTap,
   paymentRequestData,
   splitBillData,
@@ -458,6 +445,7 @@ function MessageBubble({
   onPhotoOpen?: (msgId: string) => void;
   translatedText?: string;
   onTickTap?: (msg: ChatMessage) => void;
+  onEditHistoryOpen?: (msg: ChatMessage) => void;
   paymentRequestData?: PaymentRequestData;
   splitBillData?: SplitBillData;
   onPayRequest?: (id: string) => void;
@@ -698,7 +686,16 @@ function MessageBubble({
 
         <span className="absolute bottom-1.5 right-2 flex items-center gap-0.5 text-[10px] opacity-60 whitespace-nowrap">
           {(msg as ChatMessage & { isEdited?: boolean }).isEdited && (
-            <span className="text-[9px] italic opacity-70">edited</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditHistoryOpen?.(msg);
+              }}
+              className="text-[9px] italic opacity-70 underline-offset-2 hover:underline cursor-pointer bg-transparent border-0 p-0"
+            >
+              edited
+            </button>
           )}
           {msg.time}
           {isSent && msg.tickState && msg.tickState !== "none" && (
@@ -819,6 +816,8 @@ export default function ChatViewScreen({
   wallpaper,
   onOpenMediaGallery,
   onOpenGroupAdmin,
+  onOpenScreenShare,
+  onOpenAIVoice,
 }: ChatViewScreenProps) {
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -855,6 +854,7 @@ export default function ChatViewScreen({
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showContactProfileModal, setShowContactProfileModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showCatalogueSheet, setShowCatalogueSheet] = useState(false);
   const [showQuickRepliesSheet, setShowQuickRepliesSheet] = useState(false);
@@ -869,6 +869,13 @@ export default function ChatViewScreen({
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerIndex, setPhotoViewerIndex] = useState(0);
   const [showPollCreation, setShowPollCreation] = useState(false);
+  // biome-ignore lint/correctness/noUnusedVariables: setter reserved for admin
+  const [groupAnnouncement, setGroupAnnouncement] = useState<string>(
+    "📢 Welcome to the group! Please be respectful and follow community guidelines.",
+  );
+  const [announcementDismissed, setAnnouncementDismissed] = useState(false);
+  const [announcementExpanded, setAnnouncementExpanded] = useState(false);
+  const [showSmartReplies, setShowSmartReplies] = useState(true);
   const [showContactShareModal, setShowContactShareModal] = useState(false);
   // Multi-select mode
   const [multiSelectMode, setMultiSelectMode] = useState(false);
@@ -879,6 +886,12 @@ export default function ChatViewScreen({
   const [showLiveLocation, setShowLiveLocation] = useState(false);
   const [showLiveStream, setShowLiveStream] = useState(false);
   const [showMarketplace, setShowMarketplace] = useState(false);
+  // Stage 33: Edit history, shared notes, AI summary
+  const [editHistoryMsg, setEditHistoryMsg] = useState<ChatMessage | null>(
+    null,
+  );
+  const [showSharedNotes, setShowSharedNotes] = useState(false);
+  const [showAISummary, setShowAISummary] = useState(false);
   const [editingMsg, setEditingMsg] = useState<ChatMessage | null>(null);
   const [showReactorsSheet, setShowReactorsSheet] = useState(false);
   const [reactorsTarget, setReactorsTarget] = useState<ChatMessage | null>(
@@ -901,6 +914,27 @@ export default function ChatViewScreen({
   const [showMentionPopup, setShowMentionPopup] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
   const GROUP_MEMBERS = ["Alice", "Bob", "Carol", "Dave", "Eve"];
+  const GROUP_SENDER_COLORS: Record<string, string> = {
+    Alice: "text-emerald-400",
+    Bob: "text-blue-400",
+    Carol: "text-violet-400",
+    Dave: "text-orange-400",
+    Eve: "text-rose-400",
+  };
+  const GROUP_SENDER_BG: Record<string, string> = {
+    Alice: "bg-emerald-600",
+    Bob: "bg-blue-600",
+    Carol: "bg-violet-600",
+    Dave: "bg-orange-600",
+    Eve: "bg-rose-600",
+  };
+  const groupSenderForMsg = (msg: ExtChatMessage) => {
+    if (!isGroupChat || msg.isSent) return null;
+    const names = ["Alice", "Bob", "Carol", "Dave", "Eve"];
+    return names[
+      (Number.parseInt(msg.id.replace(/[^0-9]/g, "0")) || 0) % names.length
+    ];
+  };
   // Stage 17: edit scheduled
   const [editingScheduledId, setEditingScheduledId] = useState<number | null>(
     null,
@@ -928,6 +962,11 @@ export default function ChatViewScreen({
   const docInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isAnonymous, setIsAnonymous] = useState(() => {
+    return localStorage.getItem(`anon_chat_${conversationId}`) === "1";
+  });
+  const undoMsgRef = useRef<ExtChatMessage | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-send scheduled messages when their time arrives
@@ -953,8 +992,12 @@ export default function ChatViewScreen({
 
   // Hidden file input for gallery attachment
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const chatCameraInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [showScrollFab, setShowScrollFab] = useState(false);
+  const [unreadScrollCount, setUnreadScrollCount] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -970,6 +1013,16 @@ export default function ChatViewScreen({
 
   const seedKey = conversationId.toString();
   const isGroupChat = seedKey === "2";
+  // Stage 33: temp room detection
+  const tempRoom = getTempRooms().find(
+    (r) =>
+      r.id === `temp_${conversationId}` ||
+      String(conversationId) === r.id.replace("temp_", ""),
+  );
+  const isTempRoom = !!tempRoom;
+  const tempRoomExpired =
+    isTempRoom && tempRoom && tempRoom.expiresAt <= Date.now();
+
   const contactName = isGroupChat
     ? "Team Design Sprint"
     : (contact?.name ?? "Chat");
@@ -1067,6 +1120,32 @@ export default function ChatViewScreen({
     setInputText("");
     setReplyTo(null);
     setShowEmojiPicker(false);
+
+    // Undo send toast
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoMsgRef.current = newMsg;
+    toast(
+      <div className="flex items-center gap-3" data-ocid="chat.undo_send.toast">
+        <span className="text-sm">Message sent</span>
+        <button
+          type="button"
+          data-ocid="chat.undo_send.button"
+          onClick={() => {
+            setLocalMessages((prev) => prev.filter((m) => m.id !== newMsg.id));
+            undoMsgRef.current = null;
+            if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+            toast.dismiss();
+          }}
+          className="text-wa-green font-bold text-sm hover:underline"
+        >
+          Undo
+        </button>
+      </div>,
+      { position: "top-center", duration: 3000 },
+    );
+    undoTimerRef.current = setTimeout(() => {
+      undoMsgRef.current = null;
+    }, 3000);
 
     setTimeout(() => {
       setLocalMessages((prev) =>
@@ -1463,7 +1542,7 @@ export default function ChatViewScreen({
           <button
             type="button"
             data-ocid="chat.contact.button"
-            onClick={() => setShowContactInfo(true)}
+            onClick={() => setShowContactProfileModal(true)}
             className="flex items-center gap-2 flex-1 min-w-0 text-left"
             aria-label={`View contact ${contactName}`}
           >
@@ -1483,7 +1562,7 @@ export default function ChatViewScreen({
                 className="text-wa-header-fg font-semibold text-[15px] truncate font-display"
                 style={{ marginTop: "0.5px" }}
               >
-                {contactName}
+                {isAnonymous ? "👤 Anonymous" : contactName}
               </p>
               <p className="text-wa-header-fg/60 text-[11px]">
                 {isGroupChat
@@ -1613,6 +1692,42 @@ export default function ChatViewScreen({
                   Clear chat
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  data-ocid="chat.menu.shared_notes"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => setShowSharedNotes(true)}
+                >
+                  📝 Shared Notes
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="chat.menu.ai_summary"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => setShowAISummary(true)}
+                >
+                  ✨ Summarize Chat
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="chat.anonymous_toggle.button"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => {
+                    const next = !isAnonymous;
+                    setIsAnonymous(next);
+                    localStorage.setItem(
+                      `anon_chat_${conversationId}`,
+                      next ? "1" : "0",
+                    );
+                    toast(
+                      next
+                        ? "Anonymous mode enabled"
+                        : "Anonymous mode disabled",
+                      { position: "top-center", duration: 2000 },
+                    );
+                  }}
+                >
+                  {isAnonymous
+                    ? "👤 Disable Anonymous Mode"
+                    : "👤 Enable Anonymous Mode"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
                   data-ocid="chat.menu.export"
                   className="text-[14px] py-2.5 cursor-pointer"
                   onClick={() => setShowExportDialog(true)}
@@ -1625,6 +1740,13 @@ export default function ChatViewScreen({
                   onClick={() => setShowChatThemeSheet(true)}
                 >
                   Chat theme
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  data-ocid="chat.menu.screen_share"
+                  className="text-[14px] py-2.5 cursor-pointer"
+                  onClick={() => onOpenScreenShare?.(contactName)}
+                >
+                  📱 Screen Share
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   data-ocid="chat.menu.report"
@@ -1656,6 +1778,18 @@ export default function ChatViewScreen({
                     onClick={() => onOpenGroupAdmin?.()}
                   >
                     🛡️ Admin Tools
+                  </DropdownMenuItem>
+                )}
+                {isGroupChat && (
+                  <DropdownMenuItem
+                    data-ocid="chat.menu.announcement_button"
+                    className="text-[14px] py-2.5 cursor-pointer"
+                    onClick={() => {
+                      setAnnouncementDismissed(false);
+                      setAnnouncementExpanded(true);
+                    }}
+                  >
+                    📢 Announcement
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -1814,6 +1948,40 @@ export default function ChatViewScreen({
         </div>
       )}
 
+      {/* Group Announcement Banner - Stage 34 */}
+      {isGroupChat && groupAnnouncement && !announcementDismissed && (
+        <div
+          className="announcement-banner flex items-start gap-2 px-3 py-2 flex-shrink-0"
+          data-ocid="group.announcement.panel"
+        >
+          <span className="text-[14px] mt-0.5 flex-shrink-0">📢</span>
+          <button
+            type="button"
+            className="flex-1 min-w-0 text-left"
+            onClick={() => setAnnouncementExpanded((p) => !p)}
+            data-ocid="group.announcement.toggle"
+          >
+            <p className="text-[10px] font-semibold text-purple-400">
+              Group Announcement
+            </p>
+            <p
+              className={`text-[12px] text-foreground ${announcementExpanded ? "" : "truncate"}`}
+            >
+              {groupAnnouncement}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnnouncementDismissed(true)}
+            className="p-1 text-muted-foreground hover:text-foreground flex-shrink-0"
+            aria-label="Dismiss announcement"
+            data-ocid="group.announcement.close_button"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Disappearing messages banner */}
       {selectedDisappearing !== "off" && (
         <button
@@ -1837,8 +2005,25 @@ export default function ChatViewScreen({
         </button>
       )}
 
+      {/* Stage 33: Temp room banner */}
+      {isTempRoom && (
+        <div
+          className={`flex items-center gap-2 px-4 py-2 border-b flex-shrink-0 ${tempRoomExpired ? "bg-red-500/10 border-red-500/20" : "bg-wa-green/10 border-wa-green/20"}`}
+        >
+          <span className="text-[14px]">{tempRoomExpired ? "🔴" : "⏱"}</span>
+          <p
+            className={`text-[12px] font-medium flex-1 ${tempRoomExpired ? "text-red-400" : "text-wa-green"}`}
+          >
+            {tempRoomExpired
+              ? "This room has expired"
+              : `Temp Room · ${tempRoom ? formatRoomCountdown(tempRoom.expiresAt) : ""}`}
+          </p>
+        </div>
+      )}
+
       {/* Message area — smooth scrolling */}
       <main
+        ref={chatScrollRef}
         className={`flex-1 overflow-y-auto scroll-smooth px-3 py-3 relative ${wallpaperClass}`}
         style={
           {
@@ -1846,6 +2031,12 @@ export default function ChatViewScreen({
             overscrollBehavior: "contain",
           } as React.CSSProperties
         }
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const distFromBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight;
+          setShowScrollFab(distFromBottom > 120);
+        }}
       >
         {(messagesLoading || skeletonLoading) && (
           <div data-ocid="chat.loading_state" className="space-y-3">
@@ -1922,6 +2113,35 @@ export default function ChatViewScreen({
                     </div>
                   )}
                   <div className="flex-1">
+                    {/* Group chat: sender avatar + name */}
+                    {isGroupChat &&
+                      !msg.isSent &&
+                      (() => {
+                        const sName = groupSenderForMsg(msg);
+                        const sBg = sName
+                          ? (GROUP_SENDER_BG[sName] ?? "bg-gray-600")
+                          : "bg-gray-600";
+                        const sColor = sName
+                          ? (GROUP_SENDER_COLORS[sName] ??
+                            "text-muted-foreground")
+                          : "text-muted-foreground";
+                        return (
+                          <div className="flex items-center gap-2 mb-0.5 ml-0.5">
+                            <div
+                              className={`w-5 h-5 rounded-full ${sBg} flex items-center justify-center flex-shrink-0`}
+                            >
+                              <span className="text-white text-[8px] font-bold">
+                                {sName ? sName.slice(0, 2).toUpperCase() : "??"}
+                              </span>
+                            </div>
+                            <span
+                              className={`text-[11px] font-semibold ${sColor}`}
+                            >
+                              {sName ?? "Member"}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     <MessageBubble
                       msg={msg}
                       onLongPress={(m) => {
@@ -1948,6 +2168,7 @@ export default function ChatViewScreen({
                       }
                       translatedText={translatedMsgs[msg.id]}
                       onTickTap={(m) => setReadReceiptMsg(m as ExtChatMessage)}
+                      onEditHistoryOpen={(m) => setEditHistoryMsg(m)}
                       paymentRequestData={
                         (msg as ExtChatMessage).paymentRequestId
                           ? paymentRequests[
@@ -1999,7 +2220,34 @@ export default function ChatViewScreen({
             </div>
           ))}
 
-        {showTyping && <TypingIndicator />}
+        {showTyping && (
+          <div className="flex justify-start mb-2 items-end gap-1.5">
+            {isGroupChat && (
+              <div className="w-6 h-6 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0 mb-1">
+                <span className="text-white text-[9px] font-bold">AL</span>
+              </div>
+            )}
+            <div className="bg-wa-received rounded-2xl rounded-bl-sm px-3 py-2 shadow-bubble">
+              <p className="text-[11px] text-wa-green font-semibold mb-1">
+                Alice is typing...
+              </p>
+              <div className="flex items-center gap-1">
+                <span
+                  className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="w-2 h-2 rounded-full bg-muted-foreground/60 animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
 
         {showReactions && reactTarget && (
@@ -2015,6 +2263,28 @@ export default function ChatViewScreen({
           />
         )}
       </main>
+
+      {/* Scroll-to-bottom FAB */}
+      {showScrollFab && (
+        <button
+          type="button"
+          data-ocid="chat.scroll_bottom.button"
+          onClick={() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            setShowScrollFab(false);
+            setUnreadScrollCount(0);
+          }}
+          className="absolute bottom-20 right-4 z-20 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors"
+          aria-label="Scroll to bottom"
+        >
+          {unreadScrollCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-wa-green rounded-full text-[9px] text-white font-bold flex items-center justify-center px-1">
+              {unreadScrollCount}
+            </span>
+          )}
+          <ArrowDown className="w-4 h-4 text-foreground" />
+        </button>
+      )}
 
       {/* Contact Info Screen overlay */}
       <ContactInfoScreen
@@ -2285,6 +2555,56 @@ export default function ChatViewScreen({
         </div>
       )}
 
+      {/* Smart Reply Chips - Stage 34 */}
+      {showSmartReplies &&
+        !isRecording &&
+        (() => {
+          const allMsgs = localMessages;
+          const lastMsg = allMsgs[allMsgs.length - 1];
+          if (!lastMsg || lastMsg.isSent) return null;
+          const chips = [
+            "👍 OK",
+            "Sure!",
+            "Thanks 😊",
+            "On my way",
+            "Can't talk",
+            "Call later",
+            "Yes",
+            "No",
+            "😊",
+          ];
+          return (
+            <div
+              className="flex gap-2 overflow-x-auto px-3 py-1.5 flex-shrink-0 smart-reply-enter"
+              style={{ scrollbarWidth: "none" }}
+              data-ocid="chat.smart_reply.panel"
+            >
+              {chips.map((chip, i) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="smart-reply-chip flex-shrink-0"
+                  data-ocid={
+                    i === 0
+                      ? "chat.smart_reply.button.1"
+                      : i === 1
+                        ? "chat.smart_reply.button.2"
+                        : i === 2
+                          ? "chat.smart_reply.button.3"
+                          : undefined
+                  }
+                  onClick={() => {
+                    setInputText(chip);
+                    setShowSmartReplies(false);
+                    setTimeout(() => setShowSmartReplies(true), 3000);
+                  }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
       {/* Input bar — sticky bottom */}
       {!isRecording && (
         <footer
@@ -2317,7 +2637,7 @@ export default function ChatViewScreen({
               ref={inputRef}
               data-ocid="chat.input"
               type="text"
-              placeholder="Message"
+              placeholder={isAnonymous ? "Typing anonymously..." : "Message"}
               value={inputText}
               onChange={(e) => {
                 const val = e.target.value;
@@ -2366,18 +2686,33 @@ export default function ChatViewScreen({
               <Send className="w-5 h-5 text-white" />
             </button>
           ) : (
-            <button
-              type="button"
-              data-ocid="chat.voice.record.button"
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onTouchStart={startRecording}
-              onTouchEnd={stopRecording}
-              className="w-10 h-10 bg-wa-green rounded-full flex items-center justify-center flex-shrink-0 hover:brightness-105 active:brightness-95 transition-all shadow-bubble"
-              aria-label="Voice message — hold to record"
-            >
-              <Mic className="w-5 h-5 text-white" />
-            </button>
+            <>
+              <button
+                type="button"
+                data-ocid="chat.voice.record.button"
+                onMouseDown={startRecording}
+                onMouseUp={stopRecording}
+                onTouchStart={startRecording}
+                onTouchEnd={stopRecording}
+                className="w-10 h-10 bg-wa-green rounded-full flex items-center justify-center flex-shrink-0 hover:brightness-105 active:brightness-95 transition-all shadow-bubble"
+                aria-label="Voice message — hold to record"
+              >
+                <Mic className="w-5 h-5 text-white" />
+              </button>
+              <button
+                type="button"
+                data-ocid="chat.ai_voice.open_modal_button"
+                onClick={() => onOpenAIVoice?.()}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ml-0.5"
+                style={{
+                  background: "linear-gradient(135deg, #7C3AED, #0ea5e9)",
+                  fontSize: 12,
+                }}
+                aria-label="AI Voice Clone"
+              >
+                AI
+              </button>
+            </>
           )}
         </footer>
       )}
@@ -2390,6 +2725,16 @@ export default function ChatViewScreen({
         className="hidden"
         onChange={handleGalleryFileChange}
         aria-label="Select image or video"
+      />
+      {/* Hidden real camera input */}
+      <input
+        ref={chatCameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleGalleryFileChange}
+        aria-label="Take photo"
       />
 
       {/* Attachment bottom sheet — 11 options */}
@@ -2434,7 +2779,7 @@ export default function ChatViewScreen({
                 data-ocid="chat.attach.camera.button"
                 onClick={() => {
                   setShowAttachSheet(false);
-                  setShowCameraModal(true);
+                  chatCameraInputRef.current?.click();
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -2585,6 +2930,28 @@ export default function ChatViewScreen({
                   <span className="text-[22px]">📅</span>
                 </div>
                 <span className="text-[11px] text-foreground">Event</span>
+              </button>
+
+              {/* Cloud Drive */}
+              <button
+                type="button"
+                data-ocid="chat.attach.cloud_drive.button"
+                onClick={() => {
+                  setShowAttachSheet(false);
+                  const event = new CustomEvent("openCloudDrive");
+                  window.dispatchEvent(event);
+                }}
+                className="flex flex-col items-center gap-2"
+              >
+                <div
+                  className="w-[52px] h-[52px] rounded-2xl flex items-center justify-center"
+                  style={{
+                    background: "linear-gradient(135deg, #7C3AED, #0ea5e9)",
+                  }}
+                >
+                  <span className="text-[22px]">☁️</span>
+                </div>
+                <span className="text-[11px] text-foreground">Cloud Drive</span>
               </button>
 
               {/* Share UPI QR */}
@@ -2751,6 +3118,31 @@ export default function ChatViewScreen({
       {browserUrl && (
         <InAppBrowser url={browserUrl} onClose={() => setBrowserUrl(null)} />
       )}
+
+      {/* Stage 33: Edit History Sheet */}
+      <EditHistorySheet
+        open={!!editHistoryMsg}
+        onClose={() => setEditHistoryMsg(null)}
+        msgId={editHistoryMsg?.id ?? ""}
+        currentText={editHistoryMsg?.content ?? ""}
+      />
+
+      {/* Stage 33: Shared Notes */}
+      {showSharedNotes && (
+        <SharedNotesScreen
+          chatId={String(conversationId)}
+          chatName={contactName}
+          onBack={() => setShowSharedNotes(false)}
+        />
+      )}
+
+      {/* Stage 33: AI Summary */}
+      <AISummaryModal
+        open={showAISummary}
+        onClose={() => setShowAISummary(false)}
+        chatId={String(conversationId)}
+        chatName={contactName}
+      />
 
       {/* Message context menu */}
       {contextMsg && (
@@ -3411,6 +3803,31 @@ export default function ChatViewScreen({
           sendMsg(`🎵 ${file.name}`);
           e.target.value = "";
         }}
+      />
+
+      {/* Contact Profile Modal */}
+      <ContactProfileModal
+        open={showContactProfileModal}
+        onClose={() => setShowContactProfileModal(false)}
+        contactName={contactName}
+        contactInitials={contactInitials}
+        colorIndex={colorIndex}
+        onVoiceCall={() =>
+          onOpenCall({
+            name: contactName,
+            initials: contactInitials,
+            kind: "voice",
+            colorIndex,
+          })
+        }
+        onVideoCall={() =>
+          onOpenCall({
+            name: contactName,
+            initials: contactInitials,
+            kind: "video",
+            colorIndex,
+          })
+        }
       />
 
       {/* Camera Modal */}

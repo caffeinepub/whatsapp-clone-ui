@@ -392,3 +392,143 @@ select {
 .reaction-pop {
   animation: reaction-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* ── v32: Global scrollbar hide ─────────────────────────────────────── */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── v32: Dark mode glow effects ─────────────────────────────────────── */
+.dark .wa-glow-active {
+  filter: drop-shadow(0 0 6px rgba(37, 211, 102, 0.7));
+}
+.dark [data-active-nav="true"] svg {
+  filter: drop-shadow(0 0 5px rgba(37, 211, 102, 0.6));
+}
+.dark .unread-badge {
+  box-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+.dark button[data-ocid*="send"] {
+  box-shadow: 0 0 16px rgba(37, 211, 102, 0.4);
+}
+.dark .status-ring-active {
+  box-shadow: 0 0 10px rgba(37, 211, 102, 0.6), 0 0 20px rgba(37, 211, 102, 0.3);
+}
+/* Text visibility in dark mode */
+.dark p, .dark span:not(.lucide), .dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: inherit;
+}
+/* ── v32: font theme CSS var ─────────────────────────────────────────── */
+:root {
+  --app-font: inherit;
+}
+body {
+  font-family: var(--app-font, inherit);
+}
+
+/* ── v34: Dark Premium Theme ─────────────────────────────────────────── */
+/* Applied when .dark class is on html AND data-theme="premium" is set */
+/* Or just via .dark with the new deeper tokens */
+
+/* Premium dark override — deeper blacks with purple-teal gradient accents */
+.dark {
+  --wa-header: 0.08 0.005 220;
+  --wa-header-fg: 0.97 0 0;
+  --wa-chat-bg: 0.10 0.005 220;
+  --wa-nav-bg: 0.08 0.005 220;
+  --wa-sent: 0.22 0.08 300;
+  --wa-sent-fg: 0.95 0.02 300;
+  --wa-received: 0.16 0.005 220;
+  --wa-received-fg: 0.95 0 0;
+  --background: 0.10 0.005 220;
+  --card: 0.14 0.005 220;
+  --popover: 0.16 0.005 220;
+  --border: 1 0 0 / 8%;
+}
+
+/* Gradient accent classes for headers, active elements */
+.wa-gradient-header {
+  background: linear-gradient(135deg, oklch(0.25 0.12 300), oklch(0.30 0.10 200));
+  border-bottom: 1px solid oklch(0.55 0.18 300 / 25%);
+}
+
+.dark .wa-gradient-header {
+  background: linear-gradient(135deg, oklch(0.15 0.08 300), oklch(0.18 0.06 200));
+}
+
+/* Chat bubble gradient for sent messages in dark premium mode */
+.dark .bubble-sent-gradient {
+  background: linear-gradient(135deg, oklch(0.40 0.14 300), oklch(0.42 0.12 195));
+  color: oklch(0.97 0 0);
+}
+
+/* Accent color system — applied via JS on :root */
+:root {
+  --wa-accent-color: oklch(var(--wa-green));
+  --wa-accent-glow: oklch(var(--wa-green) / 40%);
+}
+
+/* Active nav glow in dark mode */
+.dark [data-active-nav="true"] {
+  color: var(--wa-accent-color);
+  filter: drop-shadow(0 0 6px var(--wa-accent-glow));
+}
+
+/* Send button uses accent */
+.dark .send-btn-accent {
+  background: var(--wa-accent-color);
+  box-shadow: 0 0 14px var(--wa-accent-glow);
+}
+
+/* Smart reply chips */
+.smart-reply-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  background: oklch(var(--card));
+  color: oklch(var(--foreground));
+  border-color: oklch(var(--border));
+}
+
+.dark .smart-reply-chip {
+  background: oklch(0.17 0.005 220);
+  border-color: oklch(0.55 0.18 300 / 30%);
+  background-image: linear-gradient(oklch(0.17 0.005 220), oklch(0.17 0.005 220)),
+    linear-gradient(135deg, oklch(0.55 0.18 300), oklch(0.55 0.15 195));
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.smart-reply-chip:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+}
+
+/* Announcement banner */
+.announcement-banner {
+  background: linear-gradient(135deg, oklch(0.35 0.12 300 / 15%), oklch(0.35 0.10 195 / 15%));
+  border-bottom: 1px solid oklch(0.55 0.18 300 / 25%);
+}
+
+.dark .announcement-banner {
+  background: linear-gradient(135deg, oklch(0.20 0.08 300 / 20%), oklch(0.22 0.06 195 / 20%));
+}
+
+@keyframes slide-up-chips {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.smart-reply-enter {
+  animation: slide-up-chips 0.25s ease-out forwards;
+}

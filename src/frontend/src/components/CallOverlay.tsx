@@ -28,6 +28,7 @@ import ContactAvatar from "./ContactAvatar";
 interface CallOverlayProps {
   call: ActiveCall;
   onEnd: () => void;
+  onAccept?: () => void;
 }
 
 type CallState = "ringing" | "connecting" | "connected";
@@ -72,7 +73,11 @@ function SignalBars({ quality }: { quality: number }) {
   );
 }
 
-export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
+export default function CallOverlay({
+  call,
+  onEnd,
+  onAccept,
+}: CallOverlayProps) {
   const [elapsed, setElapsed] = useState(0);
   const [muted, setMuted] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(false);
@@ -537,7 +542,13 @@ export default function CallOverlay({ call, onEnd }: CallOverlayProps) {
             <button
               type="button"
               data-ocid="call.accept.button"
-              onClick={() => setCallState("connected")}
+              onClick={() => {
+                if (onAccept) {
+                  onAccept();
+                } else {
+                  setCallState("connected");
+                }
+              }}
               className="flex flex-col items-center gap-2"
             >
               <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">

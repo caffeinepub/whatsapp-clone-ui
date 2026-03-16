@@ -1,14 +1,16 @@
 import {
-  CreditCard,
-  Grid3X3,
-  MessageSquare,
+  CircleDot,
+  MessageCircle,
   Phone,
   Play,
   Radio,
+  Settings2,
   Users,
-  Wifi,
+  Wallet,
 } from "lucide-react";
 import type { TabName } from "../App";
+
+const HIDE_REELS_LIVE = true;
 
 interface BottomNavProps {
   activeTab: TabName;
@@ -21,14 +23,14 @@ const tabs: {
   label: string;
   icon: React.FC<React.SVGProps<SVGSVGElement>>;
 }[] = [
-  { id: "chats", label: "Chats", icon: MessageSquare },
-  { id: "status", label: "Updates", icon: Radio },
+  { id: "chats", label: "Chats", icon: MessageCircle },
+  { id: "status", label: "Updates", icon: CircleDot },
   { id: "reels", label: "Reels", icon: Play },
-  { id: "live", label: "Live", icon: Wifi },
+  { id: "live", label: "Live", icon: Radio },
   { id: "communities", label: "Community", icon: Users },
   { id: "calls", label: "Calls", icon: Phone },
-  { id: "payments", label: "Pay", icon: CreditCard },
-  { id: "settings", label: "Settings", icon: Grid3X3 },
+  { id: "payments", label: "Pay", icon: Wallet },
+  { id: "settings", label: "Settings", icon: Settings2 },
 ];
 
 export default function BottomNav({
@@ -36,19 +38,22 @@ export default function BottomNav({
   onTabChange,
   missedCallsCount = 0,
 }: BottomNavProps) {
+  const visibleTabs = HIDE_REELS_LIVE
+    ? tabs.filter((t) => t.id !== "reels" && t.id !== "live")
+    : tabs;
+
   return (
     <nav
-      className="sticky bottom-0 z-50 flex items-center bg-wa-nav-bg border-t border-border"
+      className="sticky bottom-0 z-50 flex items-stretch bg-wa-nav-bg border-t border-white/10"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id;
         const dynamicBadges: Partial<Record<TabName, number>> = {
           chats: 5,
           calls: missedCallsCount,
           communities: 1,
-          live: 5,
         };
         const badge = isActive ? 0 : (dynamicBadges[tab.id] ?? 0);
         return (
@@ -58,31 +63,42 @@ export default function BottomNav({
             data-ocid={`nav.${tab.id}.tab`}
             onClick={() => onTabChange(tab.id)}
             className={`
-              flex flex-col items-center justify-center flex-1 py-1.5 gap-0.5
-              transition-colors duration-150
-              ${isActive ? "text-wa-nav-active" : "text-muted-foreground"}
+              flex flex-col items-center justify-center flex-1 py-2 gap-1
+              transition-all duration-150 min-h-[56px]
+              ${isActive ? "text-wa-nav-active" : "text-muted-foreground/70"}
             `}
             aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
+            data-active-nav={isActive ? "true" : undefined}
           >
             <div className="relative">
               <Icon
-                className={`w-4.5 h-4.5 ${isActive ? "fill-wa-nav-active/20 stroke-wa-nav-active" : "stroke-muted-foreground"}`}
-                style={{ width: 18, height: 18 }}
-                strokeWidth={isActive ? 2.5 : 2}
+                className={
+                  isActive
+                    ? "fill-wa-nav-active/20 stroke-wa-nav-active"
+                    : "stroke-muted-foreground/70"
+                }
+                style={{
+                  width: isActive ? 26 : 24,
+                  height: isActive ? 26 : 24,
+                  strokeWidth: isActive ? 2.5 : 2,
+                  transition: "all 0.15s ease",
+                }}
               />
               {badge > 0 && (
                 <span
                   data-ocid={`nav.${tab.id}.badge`}
-                  className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center px-0.5 shadow-sm"
+                  className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow-sm"
                 >
                   {badge}
                 </span>
               )}
             </div>
             <span
-              className={`text-[8px] font-medium tracking-wide leading-none ${
-                isActive ? "text-wa-nav-active" : "text-muted-foreground"
+              className={`text-[11px] leading-none tracking-wide ${
+                isActive
+                  ? "text-wa-nav-active font-semibold"
+                  : "font-medium text-muted-foreground/70"
               }`}
             >
               {tab.label}

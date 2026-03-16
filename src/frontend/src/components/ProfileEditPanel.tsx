@@ -2,8 +2,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Camera } from "lucide-react";
-import { useRef, useState } from "react";
+import { Camera, CheckCircle2 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 import type { UserProfile } from "../hooks/useAppState";
 import SettingsPanel from "./SettingsPanel";
 
@@ -11,7 +12,14 @@ interface ProfileEditPanelProps {
   open: boolean;
   onClose: () => void;
   profile: UserProfile;
-  onSave: (name: string, bio: string) => void;
+  onSave: (name: string, bio: string, avatarUrl?: string) => void;
+}
+
+let profileChannel: BroadcastChannel | null = null;
+try {
+  profileChannel = new BroadcastChannel("wa_realtime");
+} catch {
+  // BroadcastChannel not supported
 }
 
 export default function ProfileEditPanel({
@@ -22,17 +30,43 @@ export default function ProfileEditPanel({
 }: ProfileEditPanelProps) {
   const [name, setName] = useState(profile.name);
   const [bio, setBio] = useState(profile.bio);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() =>
+    localStorage.getItem("wa_profile_avatar"),
+  );
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [showSaved, setShowSaved] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  // Sync profile name/bio if prop changes
+  useEffect(() => {
+    setName(profile.name);
+    setBio(profile.bio);
+  }, [profile.name, profile.bio]);
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setAvatarUrl(url);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      if (base64) {
+        localStorage.setItem("wa_profile_avatar", base64);
+        setAvatarUrl(base64);
+        // Broadcast the avatar update
+        try {
+          profileChannel?.postMessage({
+            kind: "wa_profile_update",
+            avatar: base64,
+          });
+        } catch {
+          // ignore
+        }
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,8 +79,30 @@ export default function ProfileEditPanel({
   const handleSave = () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    onSave(trimmedName, bio.trim());
-    onClose();
+    const savedAvatar = localStorage.getItem("wa_profile_avatar") ?? undefined;
+
+    // Persist to localStorage
+    const updated = { name: trimmedName, bio: bio.trim() };
+    localStorage.setItem("wa-profile", JSON.stringify(updated));
+
+    // Broadcast profile update to other tabs
+    try {
+      profileChannel?.postMessage({
+        kind: "wa_profile_update",
+        name: trimmedName,
+        bio: bio.trim(),
+        avatar: savedAvatar,
+      });
+    } catch {
+      // ignore
+    }
+
+    onSave(trimmedName, bio.trim(), savedAvatar);
+    setShowSaved(true);
+    setTimeout(() => {
+      setShowSaved(false);
+      onClose();
+    }, 1000);
   };
 
   const initials = name.trim().slice(0, 2).toUpperCase() || "ME";
@@ -111,6 +167,7 @@ export default function ProfileEditPanel({
             ref={avatarInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={handleAvatarChange}
             aria-label="Profile photo upload"
@@ -168,9 +225,30 @@ export default function ProfileEditPanel({
           data-ocid="profile.save_button"
           onClick={handleSave}
           disabled={!name.trim()}
-          className="w-full bg-wa-green hover:bg-wa-green/90 text-white font-semibold"
+          className="w-full bg-wa-green hover:bg-wa-green/90 text-white font-semibold relative"
         >
-          Save
+          <AnimatePresence mode="wait">
+            {showSaved ? (
+              <motion.span
+                key="saved"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Saved!
+              </motion.span>
+            ) : (
+              <motion.span
+                key="save"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                Save
+              </motion.span>
+            )}
+          </AnimatePresence>
         </Button>
       </div>
     </SettingsPanel>

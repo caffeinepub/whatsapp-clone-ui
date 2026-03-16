@@ -23,15 +23,17 @@ import {
   Settings,
 } from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import CameraModal from "../components/CameraModal";
 import ChannelAdminPanel, {
   type Channel,
 } from "../components/ChannelAdminPanel";
 import ContactAvatar from "../components/ContactAvatar";
+import OwnStatusViewer from "../components/OwnStatusViewer";
 import StatusPostDialog from "../components/StatusPostDialog";
 import type { UserStatus } from "../hooks/useAppState";
+import StatusEditScreen from "./StatusEditScreen";
 
 interface StatusScreenProps {
   onOpenStatusViewer: (index: number) => void;
@@ -103,6 +105,18 @@ export default function StatusScreen({
 }: StatusScreenProps) {
   const [postDialogOpen, setPostDialogOpen] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [showStatusEdit, setShowStatusEdit] = useState(false);
+  const [showOwnStatusViewer, setShowOwnStatusViewer] = useState(false);
+  const statusCameraInputRef = useRef<HTMLInputElement>(null);
+  const ownStatus = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("wa_own_status") ?? "null");
+    } catch {
+      return null;
+    }
+  })();
+  const profileAvatar = localStorage.getItem("wa_profile_avatar");
   const [showAdvertiseSheet, setShowAdvertiseSheet] = useState(false);
   const [showCreateChannelSheet, setShowCreateChannelSheet] = useState(false);
   const [showPrivacySheet, setShowPrivacySheet] = useState(false);
@@ -243,30 +257,87 @@ export default function StatusScreen({
       </header>
 
       <main className="flex-1 overflow-y-auto bg-card">
-        {/* My Status */}
+        {/* My Status with Circle */}
         <div className="px-4 py-3 border-b border-border">
           <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
             My Status
           </p>
-          <button
-            type="button"
-            data-ocid="status.my_status.button"
-            onClick={() => setPostDialogOpen(true)}
-            className="flex items-center gap-3 w-full hover:bg-muted/50 rounded-xl p-2 -mx-2 transition-colors text-left"
-          >
-            <div className="relative">
-              <ContactAvatar initials="ME" size="md" colorIndex={2} />
-              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-wa-green rounded-full flex items-center justify-center border-2 border-card">
-                <span className="text-white text-[10px] font-bold leading-none">
-                  +
-                </span>
+          <div className="flex items-center gap-3">
+            {/* Status Circle */}
+            <button
+              type="button"
+              data-ocid="status.my_circle.button"
+              onClick={() =>
+                ownStatus
+                  ? setShowOwnStatusViewer(true)
+                  : statusCameraInputRef.current?.click()
+              }
+              className="relative flex-shrink-0"
+              aria-label="My status"
+            >
+              {/* Ring */}
+              <div
+                className={`w-14 h-14 rounded-full p-0.5 ${ownStatus ? "status-ring-active" : ""}`}
+                style={
+                  ownStatus
+                    ? {
+                        background: "conic-gradient(#25d366, #14b8a6, #25d366)",
+                        padding: "2.5px",
+                      }
+                    : {
+                        background: "rgba(128,128,128,0.3)",
+                        padding: "2.5px",
+                      }
+                }
+              >
+                <div className="w-full h-full rounded-full overflow-hidden bg-card">
+                  {ownStatus?.imageUrl ? (
+                    <img
+                      src={ownStatus.imageUrl}
+                      alt="My status"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : profileAvatar ? (
+                    <img
+                      src={profileAvatar}
+                      alt="Me"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-emerald-600 flex items-center justify-center">
+                      <span className="text-white text-[18px] font-bold">
+                        ME
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div>
+              {/* Camera add button */}
+              {!ownStatus && (
+                <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-wa-green rounded-full flex items-center justify-center border-2 border-card z-10">
+                  <Camera className="w-3 h-3 text-white" />
+                </div>
+              )}
+            </button>
+            {/* Text info */}
+            <button
+              type="button"
+              data-ocid="status.my_status.button"
+              onClick={() =>
+                ownStatus
+                  ? setShowOwnStatusViewer(true)
+                  : setPostDialogOpen(true)
+              }
+              className="flex-1 text-left hover:bg-muted/50 rounded-xl px-3 py-2 -mx-1 transition-colors"
+            >
               <p className="font-semibold text-[15px] text-foreground font-display">
                 My Status
               </p>
-              {userStatuses.length > 0 ? (
+              {ownStatus ? (
+                <p className="text-[13px] text-muted-foreground">
+                  {ownStatus.caption || "Tap to view"} · Just now
+                </p>
+              ) : userStatuses.length > 0 ? (
                 <p className="text-[13px] text-muted-foreground">
                   {userStatuses[0].text.slice(0, 40)}
                   {userStatuses[0].text.length > 40 ? "…" : ""}
@@ -276,22 +347,41 @@ export default function StatusScreen({
                   Tap to add status update
                 </p>
               )}
-            </div>
-          </button>
-          {userStatuses.length > 0 && (
-            <div className="mt-2 space-y-1 pl-2">
-              {userStatuses.slice(0, 3).map((s) => (
-                <div
-                  key={`my-status-${s.time}`}
-                  className="text-[12px] text-muted-foreground flex items-center gap-2"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-wa-green flex-shrink-0" />
-                  <span className="truncate">{s.text}</span>
-                  <span className="flex-shrink-0 text-[11px]">· {s.time}</span>
-                </div>
-              ))}
-            </div>
-          )}
+            </button>
+            {/* Camera icon in header area */}
+            <button
+              type="button"
+              data-ocid="status.camera.circle.button"
+              onClick={() => statusCameraInputRef.current?.click()}
+              className="p-2 rounded-full hover:bg-muted/50 transition-colors text-muted-foreground"
+              aria-label="Take photo for status"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+          </div>
+          {/* Hidden camera input */}
+          <input
+            ref={statusCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (ev) => {
+                const dataUrl = ev.target?.result as string;
+                if (dataUrl) {
+                  setCapturedImage(dataUrl);
+                  setShowStatusEdit(true);
+                }
+              };
+              reader.readAsDataURL(file);
+              // reset input so same file can be picked again
+              e.target.value = "";
+            }}
+          />
         </div>
 
         {/* Stage 17: Status Highlights */}
@@ -503,6 +593,28 @@ export default function StatusScreen({
           />
         )}
       </AnimatePresence>
+
+      {/* Status Edit Screen (overlay) */}
+      {showStatusEdit && capturedImage && (
+        <StatusEditScreen
+          imageUrl={capturedImage}
+          onBack={() => {
+            setShowStatusEdit(false);
+            setCapturedImage(null);
+          }}
+          onSent={() => {
+            setShowStatusEdit(false);
+            setCapturedImage(null);
+          }}
+        />
+      )}
+
+      {/* Own Status Viewer */}
+      <OwnStatusViewer
+        open={showOwnStatusViewer}
+        onClose={() => setShowOwnStatusViewer(false)}
+        statusData={ownStatus}
+      />
 
       <StatusPostDialog
         open={postDialogOpen}

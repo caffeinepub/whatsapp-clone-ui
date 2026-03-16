@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { playCallEndSound, playRingtone } from "../utils/audioUtils";
 
 export interface ActiveCall {
   name: string;
@@ -21,9 +22,18 @@ export interface UserStatus {
 
 export type WallpaperType = "default" | "light" | "dark" | "green";
 
+const INCOMING_CALL_CONTACTS = [
+  { name: "Emma Rodriguez", initials: "ER", colorIndex: 0 },
+  { name: "Marcus Chen", initials: "MC", colorIndex: 1 },
+  { name: "Priya Sharma", initials: "PS", colorIndex: 4 },
+  { name: "Jordan Williams", initials: "JW", colorIndex: 3 },
+  { name: "Alice Johnson", initials: "AJ", colorIndex: 2 },
+];
+
 interface AppState {
   darkMode: boolean;
   activeCall: ActiveCall | null;
+  incomingCall: ActiveCall | null;
   statusViewerOpen: boolean;
   statusViewerIndex: number;
   userProfile: UserProfile;
@@ -31,6 +41,8 @@ interface AppState {
   wallpaper: WallpaperType;
   openCall: (contact: ActiveCall) => void;
   endCall: () => void;
+  acceptIncomingCall: () => void;
+  rejectIncomingCall: () => void;
   openStatusViewer: (index: number) => void;
   closeStatusViewer: () => void;
   toggleDarkMode: () => void;
@@ -60,6 +72,7 @@ export function useAppState(): AppState {
   );
 
   const [activeCall, setActiveCall] = useState<ActiveCall | null>(null);
+  const [incomingCall, setIncomingCall] = useState<ActiveCall | null>(null);
   const [statusViewerOpen, setStatusViewerOpen] = useState(false);
   const [statusViewerIndex, setStatusViewerIndex] = useState(0);
 
@@ -73,6 +86,11 @@ export function useAppState(): AppState {
     loadFromStorage<WallpaperType>("wa-wallpaper", "default"),
   );
 
+  const stopRingtoneRef = useRef<(() => void) | null>(null);
+  const incomingCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+
   // Apply dark mode class to html element
   useEffect(() => {
     if (darkMode) {
@@ -83,12 +101,98 @@ export function useAppState(): AppState {
     localStorage.setItem("wa-dark-mode", JSON.stringify(darkMode));
   }, [darkMode]);
 
+  // Listen for profile updates from other tabs/components
+  useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("wa_realtime");
+      channel.onmessage = (
+        ev: MessageEvent<{ kind: string; name?: string; bio?: string }>,
+      ) => {
+        if (ev.data?.kind === "wa_profile_update" && ev.data.name) {
+          const updated: UserProfile = {
+            name: ev.data.name,
+            bio: ev.data.bio ?? "",
+          };
+          setUserProfile(updated);
+        }
+      };
+    } catch {
+      // BroadcastChannel not supported
+    }
+    return () => channel?.close();
+  }, []);
+
+  // Simulate incoming calls every 60 seconds (30% chance)
+  useEffect(() => {
+    const schedule = () => {
+      incomingCallTimerRef.current = setTimeout(
+        () => {
+          // Only trigger if not already in a call
+          if (Math.random() < 0.3) {
+            const contact =
+              INCOMING_CALL_CONTACTS[
+                Math.floor(Math.random() * INCOMING_CALL_CONTACTS.length)
+              ];
+            const call: ActiveCall = {
+              ...contact,
+              kind: Math.random() > 0.5 ? "video" : "voice",
+              incoming: true,
+            };
+            setIncomingCall(call);
+          }
+          schedule();
+        },
+        60000 + Math.random() * 30000,
+      );
+    };
+    schedule();
+    return () => {
+      if (incomingCallTimerRef.current)
+        clearTimeout(incomingCallTimerRef.current);
+    };
+  }, []);
+
+  // Play ringtone when incoming call arrives
+  useEffect(() => {
+    if (incomingCall) {
+      stopRingtoneRef.current = playRingtone();
+      // Auto-reject after 30 seconds if not answered
+      const autoReject = setTimeout(() => {
+        stopRingtoneRef.current?.();
+        stopRingtoneRef.current = null;
+        setIncomingCall(null);
+      }, 30000);
+      return () => clearTimeout(autoReject);
+    }
+    return undefined;
+  }, [incomingCall]);
+
   const openCall = useCallback((contact: ActiveCall) => {
     setActiveCall(contact);
   }, []);
 
   const endCall = useCallback(() => {
+    stopRingtoneRef.current?.();
+    stopRingtoneRef.current = null;
+    playCallEndSound();
     setActiveCall(null);
+  }, []);
+
+  const acceptIncomingCall = useCallback(() => {
+    stopRingtoneRef.current?.();
+    stopRingtoneRef.current = null;
+    if (incomingCall) {
+      setActiveCall({ ...incomingCall, incoming: false });
+      setIncomingCall(null);
+    }
+  }, [incomingCall]);
+
+  const rejectIncomingCall = useCallback(() => {
+    stopRingtoneRef.current?.();
+    stopRingtoneRef.current = null;
+    playCallEndSound();
+    setIncomingCall(null);
   }, []);
 
   const openStatusViewer = useCallback((index: number) => {
@@ -130,6 +234,7 @@ export function useAppState(): AppState {
   return {
     darkMode,
     activeCall,
+    incomingCall,
     statusViewerOpen,
     statusViewerIndex,
     userProfile,
@@ -137,6 +242,8 @@ export function useAppState(): AppState {
     wallpaper,
     openCall,
     endCall,
+    acceptIncomingCall,
+    rejectIncomingCall,
     openStatusViewer,
     closeStatusViewer,
     toggleDarkMode,

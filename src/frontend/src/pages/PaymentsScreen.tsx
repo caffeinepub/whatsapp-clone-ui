@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   BanknoteIcon,
   Bell,
+  Bitcoin,
   CalendarClock,
   CheckCircle2,
   ChevronRight,
@@ -1994,7 +1995,7 @@ function ScheduledTab() {
 
 // ─── Main PaymentsScreen ─────────────────────────────────────────────────────
 
-type PayTab = "home" | "send" | "receive" | "history" | "scheduled";
+type PayTab = "home" | "send" | "receive" | "history" | "scheduled" | "crypto";
 
 const PAY_TABS: {
   id: PayTab;
@@ -2006,6 +2007,7 @@ const PAY_TABS: {
   { id: "receive", label: "Receive", icon: ArrowDownLeft },
   { id: "history", label: "History", icon: History },
   { id: "scheduled", label: "Scheduled", icon: CalendarClock },
+  { id: "crypto", label: "Crypto", icon: Bitcoin },
 ];
 
 export default function PaymentsScreen() {
@@ -2084,6 +2086,33 @@ export default function PaymentsScreen() {
         {payTab === "receive" && <ReceiveTab />}
         {payTab === "history" && <HistoryTab onTxClick={handleTxClick} />}
         {payTab === "scheduled" && <ScheduledTab />}
+        {payTab === "crypto" && (
+          <div className="flex flex-col items-center justify-center flex-1 gap-4 p-6">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-purple-600 to-cyan-500 flex items-center justify-center">
+              <Bitcoin className="w-8 h-8 text-white" />
+            </div>
+            <div className="text-center">
+              <p className="text-foreground font-bold text-lg">Crypto Wallet</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                BTC · ETH · USDT and more
+              </p>
+            </div>
+            <button
+              type="button"
+              data-ocid="payments.crypto.primary_button"
+              onClick={() => {
+                const event = new CustomEvent("openCryptoWallet");
+                window.dispatchEvent(event);
+              }}
+              className="px-8 py-3 rounded-2xl text-white font-bold text-sm"
+              style={{
+                background: "linear-gradient(135deg, #7C3AED, #0ea5e9)",
+              }}
+            >
+              Open Crypto Wallet
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modals / Sheets */}

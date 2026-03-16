@@ -1,16 +1,19 @@
-import { Toaster } from "@/components/ui/sonner";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import AIVoiceCloneModal from "./components/AIVoiceCloneModal";
 import AdvancedSearchScreen from "./components/AdvancedSearchScreen";
 import BottomNav from "./components/BottomNav";
 import BroadcastListsScreen from "./components/BroadcastListsScreen";
 import CallOverlay from "./components/CallOverlay";
 import MediaGalleryScreen from "./components/MediaGalleryScreen";
+import PushNotificationTray from "./components/PushNotificationTray";
 import QRCodeScreen from "./components/QRCodeScreen";
+import ScreenShareModal from "./components/ScreenShareModal";
 import StarredMessagesScreen from "./components/StarredMessagesScreen";
 import StatusViewer from "./components/StatusViewer";
 import { useAppState } from "./hooks/useAppState";
 import AIChatScreen from "./pages/AIChatScreen";
+import AIMeetingScreen from "./pages/AIMeetingScreen";
 import AppLockScreen from "./pages/AppLockScreen";
 import BlockedContactsScreen from "./pages/BlockedContactsScreen";
 import BusinessProfileScreen from "./pages/BusinessProfileScreen";
@@ -20,13 +23,17 @@ import ChatBackupScreen from "./pages/ChatBackupScreen";
 import ChatListScreen from "./pages/ChatListScreen";
 import ChatLockScreen from "./pages/ChatLockScreen";
 import ChatViewScreen from "./pages/ChatViewScreen";
+import CloudDriveScreen from "./pages/CloudDriveScreen";
 import CommunitiesScreen from "./pages/CommunitiesScreen";
 import ContactListScreen from "./pages/ContactListScreen";
+import CryptoWalletScreen from "./pages/CryptoWalletScreen";
+import EnterpriseAdminPanel from "./pages/EnterpriseAdminPanel";
 import GroupAdminScreen from "./pages/GroupAdminScreen";
 import LinkedDevicesScreen from "./pages/LinkedDevicesScreen";
 import LiveScreen from "./pages/LiveScreen";
 import LoginScreen from "./pages/LoginScreen";
 import MarketplaceScreen from "./pages/MarketplaceScreen";
+import MiniAppsScreen from "./pages/MiniAppsScreen";
 import NewGroupScreen from "./pages/NewGroupScreen";
 import NotificationsCenterScreen from "./pages/NotificationsCenterScreen";
 import OTPScreen from "./pages/OTPScreen";
@@ -149,14 +156,45 @@ export default function App() {
   const [chatBackupOpen, setChatBackupOpen] = useState(false);
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [groupAdminOpen, setGroupAdminOpen] = useState(false);
+  const [cryptoWalletOpen, setCryptoWalletOpen] = useState(false);
+  const [cloudDriveOpen, setCloudDriveOpen] = useState(false);
+  const [enterpriseOpen, setEnterpriseOpen] = useState(false);
+  const [aiVoiceOpen, setAiVoiceOpen] = useState(false);
+  const [screenShareFor, setScreenShareFor] = useState<string | null>(null);
+  const [aiMeetingOpen, setAiMeetingOpen] = useState(false);
+  const [miniAppsOpen, setMiniAppsOpen] = useState(false);
   const [appLocked, setAppLocked] = useState(() => {
     return localStorage.getItem("wa_app_lock_enabled") === "1";
   });
   const [missedCallsCount, setMissedCallsCount] = useState(3);
   const [notificationCount] = useState(5);
+  const [notifTrayOpen, setNotifTrayOpen] = useState(false);
   const [mediaGalleryFor, setMediaGalleryFor] = useState<string | null>(null);
 
   const appState = useAppState();
+
+  // Listen for crypto wallet open event from PaymentsScreen
+  useEffect(() => {
+    const handler = () => setCryptoWalletOpen(true);
+    window.addEventListener("openCryptoWallet", handler);
+    return () => window.removeEventListener("openCryptoWallet", handler);
+  }, []);
+
+  // Listen for cloud drive open from attach menu
+  useEffect(() => {
+    const handler = () => setCloudDriveOpen(true);
+    window.addEventListener("openCloudDrive", handler);
+    return () => window.removeEventListener("openCloudDrive", handler);
+  }, []);
+
+  // Load persisted font and accent theme
+  useEffect(() => {
+    const font = localStorage.getItem("wa_font_theme");
+    if (font) document.documentElement.style.setProperty("--app-font", font);
+    const accent = localStorage.getItem("wa_accent_color_hex");
+    if (accent)
+      document.documentElement.style.setProperty("--wa-green", accent);
+  }, []);
 
   const handleLoginNext = useCallback(
     (method: "phone" | "email", value: string) => {
@@ -238,7 +276,6 @@ export default function App() {
     return (
       <MobileFrame>
         <SplashScreen onDone={() => setAuthState("login")} />
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -257,7 +294,6 @@ export default function App() {
             <LoginScreen onNext={handleLoginNext} />
           </motion.div>
         </AnimatePresence>
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -281,7 +317,6 @@ export default function App() {
             />
           </motion.div>
         </AnimatePresence>
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -300,7 +335,6 @@ export default function App() {
             <ProfileCreationScreen onDone={handleProfileDone} />
           </motion.div>
         </AnimatePresence>
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -313,7 +347,6 @@ export default function App() {
           savedPin={savedPin}
           onUnlock={() => setAppLocked(false)}
         />
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -323,7 +356,6 @@ export default function App() {
     return (
       <MobileFrame>
         <AIChatScreen onBack={() => setAiChatOpen(false)} />
-        <Toaster position="top-center" richColors closeButton />
       </MobileFrame>
     );
   }
@@ -332,7 +364,46 @@ export default function App() {
     return (
       <MobileFrame>
         <NotificationsCenterScreen onBack={() => setNotificationsOpen(false)} />
-        <Toaster position="top-center" richColors closeButton />
+      </MobileFrame>
+    );
+  }
+
+  if (aiMeetingOpen) {
+    return (
+      <MobileFrame>
+        <AIMeetingScreen onBack={() => setAiMeetingOpen(false)} />
+      </MobileFrame>
+    );
+  }
+
+  if (miniAppsOpen) {
+    return (
+      <MobileFrame>
+        <MiniAppsScreen onBack={() => setMiniAppsOpen(false)} />
+      </MobileFrame>
+    );
+  }
+
+  if (cryptoWalletOpen) {
+    return (
+      <MobileFrame>
+        <CryptoWalletScreen onBack={() => setCryptoWalletOpen(false)} />
+      </MobileFrame>
+    );
+  }
+
+  if (cloudDriveOpen) {
+    return (
+      <MobileFrame>
+        <CloudDriveScreen onBack={() => setCloudDriveOpen(false)} />
+      </MobileFrame>
+    );
+  }
+
+  if (enterpriseOpen) {
+    return (
+      <MobileFrame>
+        <EnterpriseAdminPanel onBack={() => setEnterpriseOpen(false)} />
       </MobileFrame>
     );
   }
@@ -360,6 +431,8 @@ export default function App() {
             onOpenMediaGallery={(contactName) =>
               setMediaGalleryFor(contactName)
             }
+            onOpenScreenShare={(name) => setScreenShareFor(name)}
+            onOpenAIVoice={() => setAiVoiceOpen(true)}
           />
         ) : (
           <>
@@ -372,6 +445,8 @@ export default function App() {
                 onOpenStarred={() => setStarredOpen(true)}
                 onOpenSettings={() => setActiveTab("settings")}
                 onOpenContacts={() => setAppView("contacts")}
+                onOpenMiniApps={() => setMiniAppsOpen(true)}
+                onOpenAIMeeting={() => setAiMeetingOpen(true)}
               />
             )}
             {activeTab === "status" && (
@@ -412,14 +487,30 @@ export default function App() {
                 onOpenBlockedContacts={() => setBlockedContactsOpen(true)}
                 onOpenSecretChats={() => setSecretChatsOpen(true)}
                 onOpenChatBackup={() => setChatBackupOpen(true)}
+                onOpenEnterprise={() => setEnterpriseOpen(true)}
+                onOpenCloudDrive={() => setCloudDriveOpen(true)}
               />
             )}
           </>
         )}
 
-        {/* Call overlay */}
-        {appState.activeCall && (
-          <CallOverlay call={appState.activeCall} onEnd={appState.endCall} />
+        {/* Call overlay - active or incoming */}
+        {(appState.activeCall ?? appState.incomingCall) && (
+          <AnimatePresence>
+            <CallOverlay
+              call={(appState.activeCall ?? appState.incomingCall)!}
+              onEnd={
+                appState.activeCall
+                  ? appState.endCall
+                  : appState.rejectIncomingCall
+              }
+              onAccept={
+                appState.incomingCall && !appState.activeCall
+                  ? appState.acceptIncomingCall
+                  : undefined
+              }
+            />
+          </AnimatePresence>
         )}
 
         {/* Status viewer */}
@@ -496,6 +587,18 @@ export default function App() {
           open={advancedSearchOpen}
           onClose={() => setAdvancedSearchOpen(false)}
         />
+        {aiVoiceOpen && (
+          <AIVoiceCloneModal
+            onClose={() => setAiVoiceOpen(false)}
+            onSend={() => setAiVoiceOpen(false)}
+          />
+        )}
+        {screenShareFor && (
+          <ScreenShareModal
+            contactName={screenShareFor}
+            onClose={() => setScreenShareFor(null)}
+          />
+        )}
 
         {/* Meta AI floating button (only on chats tab) */}
         {activeTab === "chats" &&
@@ -526,7 +629,7 @@ export default function App() {
             <button
               type="button"
               data-ocid="notifications.open_modal_button"
-              onClick={() => setNotificationsOpen(true)}
+              onClick={() => setNotifTrayOpen(true)}
               className="absolute top-3 right-16 w-9 h-9 rounded-full bg-card border border-border flex items-center justify-center z-40 shadow-md"
               aria-label="Notifications"
             >
@@ -546,11 +649,9 @@ export default function App() {
         />
       )}
 
-      <Toaster
-        position="top-center"
-        richColors
-        closeButton
-        toastOptions={{ style: { marginTop: "env(safe-area-inset-top, 8px)" } }}
+      <PushNotificationTray
+        open={notifTrayOpen}
+        onClose={() => setNotifTrayOpen(false)}
       />
     </MobileFrame>
   );

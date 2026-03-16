@@ -3,6 +3,7 @@ import {
   MessageSquare,
   MoreVertical,
   Plus,
+  Settings,
   Users,
 } from "lucide-react";
 
@@ -124,6 +125,7 @@ interface CommunityDetailScreenProps {
   colorIndex: number;
   onBack: () => void;
   onOpenChat: (id: bigint) => void;
+  onOpenTools?: () => void;
 }
 
 export default function CommunityDetailScreen({
@@ -132,6 +134,7 @@ export default function CommunityDetailScreen({
   colorIndex,
   onBack,
   onOpenChat,
+  onOpenTools,
 }: CommunityDetailScreenProps) {
   const groups = MOCK_GROUPS[communityName] ?? [];
   const gradient = COMMUNITY_COLORS[colorIndex % COMMUNITY_COLORS.length];
@@ -165,6 +168,17 @@ export default function CommunityDetailScreen({
         <h1 className="flex-1 text-[17px] font-bold text-wa-header-text truncate">
           {communityName}
         </h1>
+        {onOpenTools && (
+          <button
+            type="button"
+            data-ocid="community.tools.button"
+            onClick={onOpenTools}
+            className="p-2 text-wa-header-text hover:opacity-70 transition-opacity"
+            aria-label="Community tools"
+          >
+            <Settings className="w-5 h-5" />
+          </button>
+        )}
         <button
           type="button"
           data-ocid="community.open_modal_button"

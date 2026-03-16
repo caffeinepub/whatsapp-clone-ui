@@ -213,30 +213,32 @@ export default function StatusViewer({
         </p>
       </div>
 
-      {/* Who Viewed indicator */}
-      <button
-        type="button"
-        data-ocid="status.viewers.button"
-        onClick={() => {
-          setViewersOpen(true);
-          setPaused(true);
-        }}
-        className="flex items-center justify-center gap-2 py-2 text-white/70 hover:text-white transition-colors"
-      >
-        <div className="flex -space-x-1">
-          {MOCK_VIEWERS.slice(0, 3).map((v) => (
-            <div
-              key={v.name}
-              className="w-5 h-5 rounded-full bg-white/30 border border-white/50 flex items-center justify-center text-[9px] text-white font-bold flex-shrink-0"
-            >
-              {v.initials[0]}
-            </div>
-          ))}
-        </div>
-        <span className="text-[12px]">
-          Viewed by {MOCK_VIEWERS.length} people · Swipe up
-        </span>
-      </button>
+      {/* Who Viewed indicator — only show to status owner, not viewers */}
+      {false && (
+        <button
+          type="button"
+          data-ocid="status.viewers.button"
+          onClick={() => {
+            setViewersOpen(true);
+            setPaused(true);
+          }}
+          className="flex items-center justify-center gap-2 py-2 text-white/70 hover:text-white transition-colors"
+        >
+          <div className="flex -space-x-1">
+            {MOCK_VIEWERS.slice(0, 3).map((v) => (
+              <div
+                key={v.name}
+                className="w-5 h-5 rounded-full bg-white/30 border border-white/50 flex items-center justify-center text-[9px] text-white font-bold flex-shrink-0"
+              >
+                {v.initials[0]}
+              </div>
+            ))}
+          </div>
+          <span className="text-[12px]">
+            Viewed by {MOCK_VIEWERS.length} people · Swipe up
+          </span>
+        </button>
+      )}
 
       {/* Emoji reaction bar */}
       <div className="flex-shrink-0 px-4 pb-2 flex items-center justify-around">
