@@ -1,39 +1,31 @@
-# WhatsApp Clone UI -- Stage 40: Real Backend Integration
+# WhatsApp Clone UI - Stage 41: Motoko Backend Integration
 
 ## Current State
-The app is a fully-featured frontend-only WhatsApp clone with 39 stages of UI features. All data is stored in localStorage/in-memory state. The Motoko backend has minimal functionality (contacts, conversations, messages). Authentication is simulated with no real OTP.
+Full WhatsApp-style mobile UI (Stages 1-40) with all features running on localStorage/in-memory state. No persistent backend. Real-time via BroadcastChannel only.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Real ICP authorization (Internet Identity based auth)
-- Extended Motoko backend: user profiles, real message storage with edit/delete/reactions, call records, status posts, file metadata
-- Blob storage for image/file/video sharing in chat
-- WebRTC frontend for real voice + video calls with ringing sound (Web Audio API)
-- Real-time message polling (2s interval) for live updates
-- Real profile editing persisted to backend
-- OTP authentication flow (6-digit code displayed in app since email/SMS not available on platform)
-- In-app notification sound for new messages
-- Real message reactions stored in backend
-- Real message edit + delete stored in backend
-- Real online/typing status via backend polling
+- Motoko backend: User, Chat, Message, Group canister actors with persistent on-chain storage
+- Authorization component: session-based auth with simulated OTP (code shown on screen)
+- Blob Storage component: file/image/video/audio uploads returning cloud URLs
+- Frontend hooks: useBackend, useAuth, useMessages, useFileUpload wrapping canister calls
+- Polling layer: setInterval-based message polling (2s) to simulate real-time
+- Auth flow: OTP displayed on screen for user to copy/enter, JWT-equivalent session token stored in localStorage
 
 ### Modify
-- ChatViewScreen: wire to real backend messages, use blob-storage for media upload
-- LoginScreen/OTPScreen: integrate real auth flow
-- ProfileCreationScreen/SettingsScreen: save profile to backend
-- CallOverlay: add WebRTC peer connection + ringtone with Web Audio API
-- App.tsx: use authorization hooks for real user session
+- Auth screens: wire OTP request + verification to backend
+- Chat screen: send/receive messages via canister, fallback to localStorage if canister unavailable
+- Profile edit: persist name/about/photo to backend User record
+- File/media send: upload via blob storage, store URL in message content
 
 ### Remove
-- Nothing removed -- all 39 stages of UI features preserved
+- Nothing removed from existing UI
 
 ## Implementation Plan
-1. Select components: authorization, blob-storage
-2. Generate Motoko backend with: UserProfile, Message (with reactions/edits/deletes), Conversation, StatusPost, CallRecord, FileMetadata
-3. Build real auth flow with Internet Identity + OTP code display
-4. Wire ChatViewScreen to real backend messages + blob upload
-5. Add WebRTC call logic with ringing sound
-6. Add message polling for real-time updates
-7. Wire profile editing to backend
-8. Add notification sound on new messages
+1. Select authorization + blob-storage components
+2. Generate Motoko backend (User, Message, Chat actors)
+3. Wire frontend auth flow to backend OTP simulation
+4. Wire chat message send/receive to canister with localStorage fallback
+5. Wire file upload to blob storage component
+6. Wire profile updates to backend User actor

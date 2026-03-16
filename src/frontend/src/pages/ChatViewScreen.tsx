@@ -993,6 +993,7 @@ export default function ChatViewScreen({
   // Hidden file input for gallery attachment
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const chatCameraInputRef = useRef<HTMLInputElement>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -1379,30 +1380,42 @@ export default function ChatViewScreen({
     if (!file) return;
     setShowAttachSheet(false);
     const imageUrl = URL.createObjectURL(file);
-    const imgMsg: ExtChatMessage = {
-      id: `img-${Date.now()}`,
-      content: "Photo",
-      isSent: true,
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      type: "image",
-      replyTo: null,
-      reactions: [],
-      tickState: "none",
-      imageUrl,
-    };
-    setLocalMessages((prev) => [...prev, imgMsg]);
-    toast.success(`Sent: ${file.name}`);
-    setTimeout(() => {
-      setLocalMessages((prev) =>
-        prev.map((m) =>
-          m.id === imgMsg.id ? { ...m, tickState: "double" } : m,
-        ),
-      );
-      triggerTypingIndicator();
-    }, 1000);
+    // Simulate upload progress
+    setUploadProgress(0);
+    let prog = 0;
+    const tick = setInterval(() => {
+      prog += Math.floor(Math.random() * 20) + 10;
+      if (prog >= 100) {
+        prog = 100;
+        clearInterval(tick);
+        setUploadProgress(null);
+        const imgMsg: ExtChatMessage = {
+          id: `img-${Date.now()}`,
+          content: "Photo",
+          isSent: true,
+          time: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          type: "image",
+          replyTo: null,
+          reactions: [],
+          tickState: "none",
+          imageUrl,
+        };
+        setLocalMessages((prev) => [...prev, imgMsg]);
+        setTimeout(() => {
+          setLocalMessages((prev) =>
+            prev.map((m) =>
+              m.id === imgMsg.id ? { ...m, tickState: "double" } : m,
+            ),
+          );
+          triggerTypingIndicator();
+        }, 1000);
+      } else {
+        setUploadProgress(prog);
+      }
+    }, 200);
     // reset input
     e.target.value = "";
   };
@@ -2632,6 +2645,22 @@ export default function ChatViewScreen({
             <span className="text-[18px] leading-none">⚡</span>
           </button>
 
+          {uploadProgress !== null && (
+            <div className="absolute bottom-full left-0 right-0 px-4 py-1.5 bg-card/90 backdrop-blur-sm border-t border-border/40 flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground flex-shrink-0">
+                Uploading...
+              </span>
+              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-wa-green rounded-full transition-all duration-150"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <span className="text-[11px] text-wa-green font-semibold flex-shrink-0">
+                {uploadProgress}%
+              </span>
+            </div>
+          )}
           <div className="flex-1 bg-background border border-border rounded-full flex items-center px-3 py-1.5 gap-2">
             <input
               ref={inputRef}

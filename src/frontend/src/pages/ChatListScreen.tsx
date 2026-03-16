@@ -26,6 +26,7 @@ import { Clock } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Contact, Conversation } from "../backend.d";
+import BackendStatus from "../components/BackendStatus";
 import CameraModal from "../components/CameraModal";
 import ChatLongPressSheet from "../components/ChatLongPressSheet";
 import ContactAvatar from "../components/ContactAvatar";
@@ -36,6 +37,7 @@ import TempRoomModal, {
   getTempRooms,
   formatRoomCountdown,
 } from "../components/TempRoomModal";
+import { useBackendSync } from "../hooks/useBackendSync";
 import { useContacts, useConversations } from "../hooks/useQueries";
 
 interface ExtraConversation {
@@ -284,6 +286,8 @@ export default function ChatListScreen({
 
   const { data: conversations, isLoading: convsLoading } = useConversations();
   const { data: contacts, isLoading: contactsLoading } = useContacts();
+  const { backendConversations, backendContacts, isBackendConnected } =
+    useBackendSync();
 
   const isLoading = convsLoading || contactsLoading;
   const contactMap: Map<string, Contact> = new Map(
@@ -294,7 +298,28 @@ export default function ChatListScreen({
   const getChatState = (id: string) =>
     chatStates[id] ?? { isPinned: false, isMuted: false, isUnread: false };
 
+  // Build a quick lookup for backend contacts
+  const backendContactMap = new Map(
+    backendContacts.map((c) => [c.id.toString(), c]),
+  );
+
+  // Convert backend conversations to SeedConversationItem format
+  const backendSeedItems: SeedConversationItem[] = backendConversations.map(
+    (conv) => {
+      const bc = backendContactMap.get(conv.contactId.toString());
+      return {
+        id: conv.id,
+        contactName: bc?.name ?? `Contact ${conv.contactId}`,
+        initials: bc?.avatarInitials ?? "??",
+        lastMsg: conv.lastMessage?.content ?? "",
+        time: conv.lastMessageTime ? formatTimestamp(conv.lastMessageTime) : "",
+        unread: Number(conv.unreadCount),
+      };
+    },
+  );
+
   const allSeedConversations: SeedConversationItem[] = [
+    ...backendSeedItems,
     ...extraConversations.map((e) => ({
       id: e.id,
       contactName: e.contactName,
@@ -340,9 +365,16 @@ export default function ChatListScreen({
         }}
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
-            WhatsApp
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-wa-header-fg text-[22px] font-bold font-display">
+              WhatsApp
+            </h1>
+            {isBackendConnected && (
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 leading-none">
+                LIVE
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-0">
             <button
               type="button"
@@ -803,6 +835,9 @@ export default function ChatListScreen({
             );
           })}
       </main>
+
+      {/* Backend Status Badge */}
+      <BackendStatus isConnected={isBackendConnected} />
 
       {/* FAB - Pencil opens NewChatScreen */}
       <button

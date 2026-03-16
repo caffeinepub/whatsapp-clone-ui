@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { playMessageSound } from "../utils/audioUtils";
 
 const CHANNEL_NAME = "wa_realtime";
@@ -487,4 +494,39 @@ export function useRealTimeMessaging(
     setTyping,
     typingUsers,
   };
+}
+
+// Sync backend messages into local state
+export function syncBackendMessages(
+  conversationId: string,
+  backendMessages: Array<{
+    id: bigint;
+    senderId: bigint;
+    content: string;
+    timestamp: bigint;
+    isRead: boolean;
+  }>,
+  setMessages: Dispatch<SetStateAction<RTMessage[]>>,
+): void {
+  if (!backendMessages.length) return;
+  const mapped: RTMessage[] = backendMessages.map((m) => ({
+    id: `backend_${m.id.toString()}`,
+    conversationId,
+    senderId: m.senderId.toString(),
+    content: m.content,
+    type: "text" as MessageType,
+    timestamp: Number(m.timestamp) / 1_000_000,
+    status: (m.isRead ? "read" : "delivered") as MessageStatus,
+    reactions: [],
+  }));
+  setMessages((prev) => {
+    const existingIds = new Set(prev.map((m) => m.id));
+    const newOnes = mapped.filter((m) => !existingIds.has(m.id));
+    if (!newOnes.length) return prev;
+    const merged = [...prev, ...newOnes].sort(
+      (a, b) => a.timestamp - b.timestamp,
+    );
+    saveMessages(conversationId, merged);
+    return merged;
+  });
 }
